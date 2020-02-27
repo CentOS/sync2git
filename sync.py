@@ -90,6 +90,7 @@ if __name__ == "__main__":
     ctag = "dist-c8-stream-compose"
 
     brew_proxy = brew.ClientSession("http://brewhub.engineering.redhat.com/brewhub/")
+    tagged_builds = get_tagged_builds(brew_proxy, tag)
     if local_packages:
         packages_to_track = load_package_list()
     else:
@@ -110,7 +111,6 @@ if __name__ == "__main__":
         tagged_builds = ntagged
 
     # build = brew_proxy.getTag()
-    tagged_builds = get_tagged_builds(brew_proxy, tag)
     # build = brew_proxy.getBuild(sys.argv[1]) # module
     # `nvr` attribute of `tagged_build` contains git tags
     # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
