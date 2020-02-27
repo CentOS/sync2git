@@ -1,8 +1,15 @@
+#! /usr/bin/python2
+
+from __future__ import print_function
+
 import koji as brew
 import json
 import sys
 import git
 import os
+
+# Takes 666 years to get the git repo. So ignore this for testing.
+skip_kernel = False
 
 def load_package_list():
     return open("packages.txt", "r").read().split("\n")
@@ -19,8 +26,11 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
     """
     unsynced_builds = []
 
-    for build in tagged_builds:
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
+        if skip_kernel and build['package_name'] == 'kernel':
+            continue
         if build['package_name'] in packages_to_track:
+            print("Pkg: ", build['package_name'])
             os.system("rm -rf /tmp/" + build['package_name'])
             repo = git.Repo.clone_from("https://git.centos.org/rpms/" + build['package_name'] + ".git", "/tmp/" +
             build['package_name'])
@@ -72,12 +82,33 @@ def sync_directly(unsycned_builds):
         print("Removing " + build['nvr'] + ".src.rpm...")
         os.remove(build['nvr'] + ".src.rpm")
 
+local_packages = False
 # Badly written but working python script
 if __name__ == "__main__":
     # tag = sys.argv[1]
     tag = "rhel-8.2.0-candidate"
+    ctag = "dist-c8-stream-compose"
+
     brew_proxy = brew.ClientSession("http://brewhub.engineering.redhat.com/brewhub/")
-    packages_to_track = load_package_list()
+    if local_packages:
+        packages_to_track = load_package_list()
+    else:
+        print("Contacting mbox for:", ctag)
+        cproxy = brew.ClientSession("https://koji.mbox.centos.org/kojihub/")
+        ctagged_builds = get_tagged_builds(cproxy, ctag)
+        packages_to_track = [b['package_name'] for b in ctagged_builds]
+        # Now filter out the pacakges which are already uptodate in CentOS
+        latest = set()
+        for build in ctagged_builds:
+            latest.add(build['nvr'])
+        ntagged = []
+        for build in sorted(tagged_builds, key=lambda x: x['package_name']):
+            if build['nvr'] in latest:
+                print("Already in sync with", build['package_name'])
+                continue
+            ntagged.append(build)
+        tagged_builds = ntagged
+
     # build = brew_proxy.getTag()
     tagged_builds = get_tagged_builds(brew_proxy, tag)
     # build = brew_proxy.getBuild(sys.argv[1]) # module
