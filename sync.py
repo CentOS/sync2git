@@ -35,7 +35,7 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                     print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
-            unsynced_builds.append(build) # test, move back to above `if` block
+                unsynced_builds.append(build)
 
     return unsynced_builds
 
