@@ -25,10 +25,10 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             repo = git.Repo.clone_from("https://git.centos.org/rpms/" + build['package_name'] + ".git", "/tmp/" +
             build['package_name'])
            
-            tag_to_check = build['nvr']
+            tag_to_check = "imports/c8s/" + build['nvr']
             new_build = True
             for tag in repo.tags:
-                if tag_to_check in str(tag):
+                if tag_to_check ==  str(tag):
                     new_build = False
                     print("Tag: ", tag)
                     print("Build: ", build)
