@@ -36,7 +36,8 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
-
+            # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
+            os.system("rm -rf /tmp/" + build['package_name'])
     return unsynced_builds
 
 def sync_through_pub(unsynced_builds):
