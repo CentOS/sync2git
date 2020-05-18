@@ -6,7 +6,7 @@ import os
 from optparse import OptionParser
 
 # Do we want to filter through the CVE checker
-filter_cve = False
+filter_cve = True
 
 
 def load_package_list():
