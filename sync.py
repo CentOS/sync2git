@@ -5,6 +5,10 @@ import git
 import os
 from optparse import OptionParser
 
+# Do we want to filter through the CVE checker
+filter_cve = False
+
+
 def load_package_list():
     return open("packages.txt", "r").read().split("\n")
 
@@ -99,6 +103,40 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
 
     return unsynced_builds
 
+def check_cve_builds(tagged_builds):
+    """
+    Look for builds that aren't allowed and filter them
+    """
+    if not filter_cve:
+        return tagged_builds
+    import access
+
+    reqs = {}
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
+        if build['nvr'] in reqs:
+            continue
+
+        n, v, r = build['nvr'].rsplit('-', 2)
+        req = access.NvrInfo(n, v, r)
+        reqs[build['nvr']] = req
+        #  Precache for speed, downside is it means once we get an allow
+        # we stop querying.
+        if not req.hist_precache():
+            req.req()
+
+    # Now we look at the results and filter those that aren't allowed...
+    allowed_builds = []
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
+        if build['nvr'] not in reqs: # How did this happen?
+            print("Error Pkg: ", build['package_name'])
+            continue
+        req = reqs[build['nvr']]
+        if not req.allow():
+            print("Filtered Pkg: ", req)
+            continue
+        allowed_builds.append(build)
+    return allowed_builds
+
 def sync_through_pub(unsynced_builds):
     """
     Create `pub` jobs that will sync package builds with Centos repositories
@@ -163,6 +201,7 @@ def sync_packages(tag, brew_proxy, packages_to_track):
     # `nvr` attribute of `tagged_build` contains git tags
     # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
     unsynced_builds = check_unsynced_builds(tagged_builds, packages_to_track)
+    unsynced_builds = check_cve_builds(unsynced_builds)
     # sync_through_pub(unsynced_builds)
     sync_directly(unsynced_builds)
 
