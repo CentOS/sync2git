@@ -1,5 +1,8 @@
 #! /usr/bin/python
 
+# Stupid python3
+from __future__ import print_function
+
 import calendar
 import os
 import subprocess
@@ -254,7 +257,7 @@ class NvrInfo:
             self._res_data = {'state' : 'error', 'result' : 'deny'}
             self._res_state = 'Bad info response'
             return
-        # print "DBG:", self, '=', self._res_data
+        # print("DBG:", self, '=', self._res_data)
 
         # The server states are: init, running, done, error
         self._res_state = self._res_data['state']
@@ -276,7 +279,7 @@ class NvrInfo:
 def local_lookup(name):
     d = subprocess.check_output(["rpm", "--nodigest", "--nosignature", "--qf", "%{name}-%{version}-%{release}\n", "-q", name])
     if ' ' in d:
-        print "Couldn't find local pkg:", name
+        print("Couldn't find local pkg:", name)
         return []
     reqs = []
     for line in d.split('\n'):
@@ -297,14 +300,14 @@ def maybe_local_lookup(arg):
 
 
 def _usage(ec=1):
-    print 'access [-h] nvr|file-nvr|allow|history|log arg [args...]'
-    print '       -h       Use history data'
-    print ''
-    print '       nvr      NVR|name [args...]'
-    print '       file-nvr filename [args...]'
-    print '       allow    NVR|name [args...]'
-    print '       history  name[-version[-release]] [args...]'
-    print '       log      ID [args...]'
+    print('access [-h] nvr|file-nvr|allow|history|log arg [args...]')
+    print('       -h       Use history data')
+    print('')
+    print('       nvr      NVR|name [args...]')
+    print('       file-nvr filename [args...]')
+    print('       allow    NVR|name [args...]')
+    print('       history  name[-version[-release]] [args...]')
+    print('       log      ID [args...]')
     sys.exit(ec)
 
 def main():
@@ -328,7 +331,7 @@ def main():
                 out += " "
             done = True
             out += str(arg)
-        print out
+        print(out)
 
     if sys.argv[1] in ('allow', 'allow-nvrs', 'allow-nvr'):
         prnt = noprnt
@@ -338,11 +341,11 @@ def main():
     if False: pass
     elif sys.argv[1] in ('logs', 'log'):
         for arg in sys.argv[2:]:
-            print "=" * 78
-            print "Log:", arg
-            print "-" * 78
-            print log4id(arg)
-            print "-" * 78
+            print("=" * 78)
+            print("Log:", arg)
+            print("-" * 78)
+            print(log4id(arg))
+            print("-" * 78)
         sys.exit(0)
     elif sys.argv[1] in ('hist', 'history'):
         for arg in sys.argv[2:]:
@@ -353,34 +356,34 @@ def main():
                 n = arg
             if '-' in arg:
                 v, r = arg.rsplit('-', 1)
-            print "=" * 78
-            print "History:", arg, "(%s, %s, %s)" % (n, v, r)
-            print "-" * 78
+            print("=" * 78)
+            print("History:", arg, "(%s, %s, %s)" % (n, v, r))
+            print("-" * 78)
             done = False
             for h in hist(n, v, r):
                 if 'nvr' not in h:
                     continue # Report?
                 if done:
-                    print ''
+                    print('')
                 done = True
                 i = "NVR"
-                print "%s: %s" % (i, h[i.lower()])
+                print("%s: %s" % (i, h[i.lower()]))
                 # Skip safe_nvr
                 for i in ("state", "result"):
-                    print "  %-6s: %s" % (i, h.get(i, ''))
+                    print("  %-6s: %s" % (i, h.get(i, '')))
 
                 if 'start' not in h:
                     continue
                 i = "start"
                 b = tm(h[i])
                 sui = seconds_to_ui_time
-                print "  %-6s: %s (%s ago)" % (i, h[i], sui(time.time() - b))
+                print("  %-6s: %s (%s ago)" % (i, h[i], sui(time.time() - b)))
 
                 if 'end' not in h:
                     continue
                 i = "end"
                 e = tm(h[i])
-                print "  %-6s: %s (%s taken)" % (i, h[i], sui(e - b))
+                print("  %-6s: %s (%s taken)" % (i, h[i], sui(e - b)))
         sys.exit(0)
     elif sys.argv[1] in ('nvr', 'nvrs', 'allow', 'allow-nvrs', 'allow-nvr'):
         for arg in sys.argv[2:]:
@@ -390,7 +393,7 @@ def main():
     elif sys.argv[1] in ('name', 'names'):
         for arg in sys.argv[2:]:
             for req in local_lookup(arg):
-                print "Adding:", req
+                print("Adding:", req)
                 reqs.append(req)
     elif sys.argv[1] in ('file-nvr', 'file-nvrs', 'allow-file', 'allow-file-nvrs', 'allow-file-nvr'):
         for fname in sys.argv[2:]:
