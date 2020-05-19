@@ -22,7 +22,11 @@ sleep_err = 20*60 # Kernel can take a _long_ time.
 
 def _data_url(url):
     try:
-        response = urllib.urlopen(url)
+        if hasattr(urllib, "urlopen"):
+            response = urllib.urlopen(url)
+        else: # python3 imcompatibile
+            import urllib.request as u2
+            response = u2.urlopen(url)
     except IOError: # Py2
         return ""
     except OSError: # Py3+
@@ -278,6 +282,7 @@ class NvrInfo:
 
 def local_lookup(name):
     d = subprocess.check_output(["rpm", "--nodigest", "--nosignature", "--qf", "%{name}-%{version}-%{release}\n", "-q", name])
+    d = d.decode('utf-8') # Sigh python3
     if ' ' in d:
         print("Couldn't find local pkg:", name)
         return []
