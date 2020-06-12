@@ -1,12 +1,17 @@
 import koji as brew
 import json
 import sys
-import git
 import os
 from optparse import OptionParser
 
 # Do we want to filter through the CVE checker
 filter_cve = True
+
+# Do we want to just test...
+__test_print_tagged = False
+
+if not __test_print_tagged:
+    import git
 
 
 def load_package_list():
@@ -47,6 +52,49 @@ def get_tagged_modules(brew_proxy, tag):
     # `brew_proxy.listTagged(tag, latest=True)` won't work as `latest` flag is broken with modules
     # We have to parse list of modules manually and get the latest one
     return filter_latest_modules(brew_proxy.listTagged(tag, latest=False))
+
+def get_composed_builds(baseurl):
+    """
+    Return a list of latest builds that are in the given compose
+    """
+    import compose
+
+    c = compose.Compose(baseurl)
+    pdata = c.json_rpms()
+    p = compose.packages_from_compose(pdata)
+    return p
+
+def get_composed_modules(baseurl):
+    """
+    Return a list of latest modules that are in the given compose
+    """
+    import compose
+
+    c = compose.Compose(baseurl)
+    mdata = c.json_modules()
+    m = compose.modules_from_compose(mdata)
+    return compose.dedup_modules(m)
+
+def composed_builds2tagged_builds(composed):
+    ret = []
+    for pkg in composed:
+        ent = {'package_name' : pkg.name, 'nvr' : pkg.nvr(),
+               # These aren't used atm.
+               'name' : pkg.name, 'version' : pkg.version, 'release' : pkg.release,
+               'epoch' : pkg.koji_epochnum()}
+        ret.append(ent)
+    return ret
+
+def composed_modules2tagged_builds(composed):
+    ret = []
+    for mod in composed:
+        ent = {'package_name' : mod.name, 'nvr' : mod.nsvc(),
+               # These aren't used atm.
+               'name' : mod.name, 'version' : mod.stream,
+               'release' : mod.vc(),
+               'epoch' : None}
+        ret.append(ent)
+    return ret
 
 def check_unsynced_builds(tagged_builds, packages_to_track):
     """
@@ -193,10 +241,22 @@ def sync_modules_directly(unsynced_builds):
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
 
-def sync_packages(tag, brew_proxy, packages_to_track):
+def sync_packages(tag, compose, brew_proxy, packages_to_track):
     """
+        tag: Specify a koji tag to pull packages from.
+        compose: Specify a "koji" compose to pull packages from (None uses the tag.
+        brew_proxy: brew object to query
+        packages_to_track: list of packages we care about
     """
-    tagged_builds = get_tagged_builds(brew_proxy, tag)
+    if compose is None:
+        tagged_builds = get_tagged_builds(brew_proxy, tag)
+    else:
+        composed_builds = get_composed_builds(compose)
+        tagged_builds = composed_builds2tagged_builds(composed_builds)
+    if __test_print_tagged:
+        from pprint import pprint
+        pprint(tagged_builds)
+        return
     # build = brew_proxy.getBuild(sys.argv[1]) # module
     # `nvr` attribute of `tagged_build` contains git tags
     # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
@@ -205,16 +265,29 @@ def sync_packages(tag, brew_proxy, packages_to_track):
     # sync_through_pub(unsynced_builds)
     sync_directly(unsynced_builds)
 
-def sync_modules(tag, brew_proxy, modules_to_track):
+def sync_modules(tag, compose, brew_proxy, modules_to_track):
     """
+        tag: Specify a koji tag to pull modules from.
+        compose: Specify a "koji" compose to pull modules from (None uses the tag).
+        brew_proxy: brew object to query
+        modules_to_track: list of modules we care about
     """
-    tagged_builds = get_tagged_modules(brew_proxy, tag)
-    # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
+    if compose is None:
+        tagged_builds = get_tagged_modules(brew_proxy, tag)
+    else:
+        composed_builds = get_composed_modules(compose)
+        tagged_builds = composed_modules2tagged_builds(composed_builds)
+    if __test_print_tagged:
+        from pprint import pprint
+        pprint(tagged_builds)
+        return
     unsynced_builds = check_unsynced_modules(tagged_builds, modules_to_track)
     sync_modules_directly(unsynced_builds)
 
 def main():
     parser = OptionParser()
+    parser.add_option("", "--koji-host", dest="koji_host",
+                      help="Host to connect to", default="http://brewhub.engineering.redhat.com/brewhub/")
     parser.add_option("", "--sync-packages", dest="sync_packages",
                       help="Sync packages to streams", default=False, action="store_true")
     parser.add_option("", "--sync-modules", dest="sync_modules",
@@ -223,17 +296,21 @@ def main():
                       help="Specify package tag to sync", default="rhel-8.2.0-candidate")
     parser.add_option("", "--modules-tag", dest="modules_tag",
                       help="Specify module tag to sync", default="rhel-8.2.0-modules-candidate")
+    parser.add_option("", "--packages-compose", dest="packages_compose",
+                      help="Specify package compose to sync", default=None)
+    parser.add_option("", "--modules-compose", dest="modules_compose",
+                      help="Specify module compose to sync", default=None)
 
     (options, args) = parser.parse_args()
 
-    brew_proxy = brew.ClientSession("http://brewhub.engineering.redhat.com/brewhub/")
+    brew_proxy = brew.ClientSession(options.koji_host)
     packages_to_track = load_package_list()
     modules_to_track = load_module_list()
 
     if options.sync_packages:
-        sync_packages(options.packages_tag, brew_proxy, packages_to_track)
+        sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track)
     if options.sync_modules:
-        sync_modules(options.modules_tag, brew_proxy, modules_to_track)
+        sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track)
 
 # Badly written but working python script
 if __name__ == "__main__":
