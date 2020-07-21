@@ -136,14 +136,23 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
 
     for build in tagged_builds:
         if build['package_name'] in packages_to_track:
-            os.system("rm -rf /tmp/" + build['package_name'])
-            repo = git.Repo.clone_from("https://git.centos.org/rpms/" + build['package_name'] + ".git", "/tmp/" +
-            build['package_name'])
-           
-            tag_to_check = "imports/c8s/" + build['nvr']
+            codir = "/tmp/" + build['package_name']
+            os.system("rm -rf " + codir)
+
+            giturl = "https://git.centos.org/rpms/"
+            giturl += build['package_name']
+            giturl += ".git"
+            try:
+                repo = git.Repo.clone_from(giturl, codir)
+                tags = repo.tags
+            except git.exc.GitCommandError:
+                # This means the clone didn't work, so it's a new package.
+                tags = []
+
+            tags_to_check = ("imports/c8s/" + build['nvr'], "imports/c8/" + build['nvr'])
             new_build = True
-            for tag in repo.tags:
-                if tag_to_check ==  str(tag):
+            for tag in tags:
+                if str(tag) in tags_to_check:
                     new_build = False
                     print("Tag: ", tag)
                     print("Build: ", build)
