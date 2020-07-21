@@ -134,9 +134,12 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
     """
     unsynced_builds = []
 
-    for build in tagged_builds:
+    corootdir = "/tmp/centos-sync-" + str(os.getpid()) + "/"
+    print("Using tmp dir:", corootdir)
+    os.makedirs(corootdir)
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in packages_to_track:
-            codir = "/tmp/" + build['package_name']
+            codir = corootdir + build['package_name']
             os.system("rm -rf " + codir)
 
             giturl = "https://git.centos.org/rpms/"
@@ -161,7 +164,8 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
             # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
-            os.system("rm -rf /tmp/" + build['package_name'])
+            os.system("rm -rf " + codir)
+    os.system("rm -rf " + corootdir)
     return unsynced_builds
 
 def check_unsynced_modules(tagged_builds, modules_to_track):
@@ -169,7 +173,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
     Look for modules that are not synced with centos streams.
     """
     unsynced_builds = []
-    for build in tagged_builds:
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in modules_to_track:
             os.system("rm -rf /tmp/" + build['package_name'])
             # import ipdb; ipdb.set_trace();
@@ -248,17 +252,17 @@ def sync_directly(unsynced_builds):
     This is a temporary method to sync by directly uploading rpms to centos repos
     This should be replaced by `sync_through_pub()` function at some point in future
     """
-    for build in unsynced_builds:
+    for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         print("brew download-build --rpm " + build['nvr'] + ".src.rpm")
         os.system("brew download-build --rpm " + build['nvr'] + ".src.rpm")
 
     if data_downloadonly:
         return
 
-    for build in unsynced_builds:
+    for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         os.system("alt-src -d --push c8s " + build['nvr'] + ".src.rpm")
 
-    for build in unsynced_builds:
+    for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         print("Removing " + build['nvr'] + ".src.rpm...")
         os.remove(build['nvr'] + ".src.rpm")
 
