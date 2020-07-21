@@ -13,12 +13,27 @@ __test_print_tagged = False
 if not __test_print_tagged:
     import git
 
+def _read_lines(fname):
+    """ Read the lines from a file, removeing extra whitespace and comments. """
+    ret = []
+    for line in open(fname):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith('#'):
+            continue
+
+        ret.append(line)
+    return ret
 
 def load_package_list():
-    return open("packages.txt", "r").read().split("\n")
+    return _read_lines("packages.txt")
 
 def load_module_list():
-    return open("modules.txt", "r").read().split("\n")
+    return _read_lines("modules.txt")
+
+def load_package_denylist():
+    return _read_lines("packages-denylist.txt")
 
 def get_tagged_builds(brew_proxy, tag):
     """
@@ -94,6 +109,17 @@ def composed_modules2tagged_builds(composed):
                'release' : mod.vc(),
                'epoch' : None}
         ret.append(ent)
+    return ret
+
+def check_denylist_builds(builds, denylist):
+    """
+    Look for any builds on the denylist, and remove them.
+    """
+    ret = []
+    for build in builds:
+        if build['package_name'] in denylist:
+            continue
+        ret.append(build)
     return ret
 
 def check_unsynced_builds(tagged_builds, packages_to_track):
@@ -241,7 +267,7 @@ def sync_modules_directly(unsynced_builds):
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
 
-def sync_packages(tag, compose, brew_proxy, packages_to_track):
+def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
     """
         tag: Specify a koji tag to pull packages from.
         compose: Specify a "koji" compose to pull packages from (None uses the tag.
@@ -261,6 +287,7 @@ def sync_packages(tag, compose, brew_proxy, packages_to_track):
     # `nvr` attribute of `tagged_build` contains git tags
     # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
     unsynced_builds = check_unsynced_builds(tagged_builds, packages_to_track)
+    unsynced_builds = check_denylist_builds(unsynced_builds, denylist)
     unsynced_builds = check_cve_builds(unsynced_builds)
     # sync_through_pub(unsynced_builds)
     sync_directly(unsynced_builds)
@@ -306,9 +333,11 @@ def main():
     brew_proxy = brew.ClientSession(options.koji_host)
     packages_to_track = load_package_list()
     modules_to_track = load_module_list()
+    denylist = load_package_denylist()
+    denylist = set(denylist)
 
     if options.sync_packages:
-        sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track)
+        sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track, denylist)
     if options.sync_modules:
         sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track)
 
