@@ -7,6 +7,9 @@ from optparse import OptionParser
 # Do we want to filter through the CVE checker
 filter_cve = True
 
+# Just do the downloads, and don't alt-src
+data_downloadonly = False
+
 # Do we want to include all packages from a compose...
 __auto_compose_allowlist = True
 
@@ -240,6 +243,9 @@ def sync_directly(unsynced_builds):
         print("brew download-build --rpm " + build['nvr'] + ".src.rpm")
         os.system("brew download-build --rpm " + build['nvr'] + ".src.rpm")
 
+    if data_downloadonly:
+        return
+
     for build in unsynced_builds:
         os.system("alt-src -d --push c8s " + build['nvr'] + ".src.rpm")
 
@@ -266,6 +272,11 @@ def sync_modules_directly(unsynced_builds):
         filename = "{}:modulemd.src.txt".format(build['nvr'])
         with open(filename, "w") as modulemd_file:
             modulemd_file.write(modulemd)
+
+        print("Wrote:", filename)
+        if data_downloadonly:
+            return
+
         # print("alt-src --push --brew " + tag + " " + filename)
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
@@ -334,6 +345,8 @@ def main():
                       help="Specify package compose to sync", default=None)
     parser.add_option("", "--modules-compose", dest="modules_compose",
                       help="Specify module compose to sync", default=None)
+    parser.add_option("", "--download-only", dest="download_only",
+                      help="Just download, always safe", default=False, action="store_true")
 
     (options, args) = parser.parse_args()
 
@@ -343,6 +356,9 @@ def main():
     denylist = load_package_denylist()
     denylist = set(denylist)
 
+    if options.download_only:
+        global data_downloadonly
+        data_downloadonly = True
     if options.sync_packages:
         sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track, denylist)
     if options.sync_modules:
