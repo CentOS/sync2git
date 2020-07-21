@@ -7,6 +7,9 @@ from optparse import OptionParser
 # Do we want to filter through the CVE checker
 filter_cve = True
 
+# Do we want to include all packages from a compose...
+__auto_compose_allowlist = True
+
 # Do we want to just test...
 __test_print_tagged = False
 
@@ -272,13 +275,17 @@ def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
         tag: Specify a koji tag to pull packages from.
         compose: Specify a "koji" compose to pull packages from (None uses the tag.
         brew_proxy: brew object to query
-        packages_to_track: list of packages we care about
+        packages_to_track: list of packages we care about (unused for compose)
     """
     if compose is None:
         tagged_builds = get_tagged_builds(brew_proxy, tag)
     else:
         composed_builds = get_composed_builds(compose)
         tagged_builds = composed_builds2tagged_builds(composed_builds)
+        if __auto_compose_allowlist:
+            packages_to_track = set()
+            for build in tagged_builds:
+                packages_to_track.add(build['package_name'])
     if __test_print_tagged:
         from pprint import pprint
         pprint(tagged_builds)
