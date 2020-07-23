@@ -1,5 +1,7 @@
 # We shouldn't ever ship these packages...
+redhat-indexhtml
 redhat-logos
+redhat-release
 # Debranding packages?
 firefox
 gflags
