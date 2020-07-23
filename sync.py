@@ -173,19 +173,30 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
     Look for modules that are not synced with centos streams.
     """
     unsynced_builds = []
+    corootdir = "/tmp/centos-sync-mod-" + str(os.getpid()) + "/"
+    print("Using tmp dir:", corootdir)
+    os.makedirs(corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in modules_to_track:
-            os.system("rm -rf /tmp/" + build['package_name'])
-            # import ipdb; ipdb.set_trace();
-            repo = git.Repo.clone_from("https://git.centos.org/modules/" + build['package_name'] + ".git", "/tmp/" +
-            build['package_name'])
-            
+            codir = corootdir + build['package_name']
+            os.system("rm -rf " + codir)
+
+            giturl = "https://git.centos.org/modules/"
+            giturl += build['package_name']
+            giturl += ".git"
+            try:
+                repo = git.Repo.clone_from(giturl, codir)
+                tags = repo.tags
+            except git.exc.GitCommandError:
+                # This means the clone didn't work, so it's a new module.
+                tags = []
+
             # imports/c8-stream-1.0/libvirt-4.5.0-35.3.module+el8.1.0+5931+8897e7e1 
-            tag_to_check = "imports/c8-stream-1.0/" + build['nvr']
+            tags_to_check = ("imports/c8-stream-1.0/" + build['nvr'], "imports/c8s-stream-1.0/" + build['nvr'])
             new_build = True
-            for tag in repo.tags:
-                print("{} == {}".format(tag_to_check, str(tag)))
-                if tag_to_check == str(tag):
+            for tag in tags:
+                print(" Mod tag check: {}".format(str(tag)))
+                if str(tag) in tags_to_check:
                     new_build = False
                     print("Tag: ", tag)
                     print("Build: ", build)
@@ -194,6 +205,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
 
+    os.system("rm -rf " + corootdir)
     return unsynced_builds
 
 def check_cve_builds(tagged_builds):
