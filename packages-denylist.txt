@@ -1,10 +1,18 @@
-# We shouldn't ever ship these packages...
+# Packages that we never push under any circumstances
+compat-locales-sap
+compat-sap-c++
+insights-client
+libica
+libzfcphbaapi
+openssl-ibmca
+qclib
+redhat-bookmarks
 redhat-indexhtml
 redhat-logos
 redhat-release
-# Debranding packages?
-firefox
-gflags
-gnu-efi
-subscription-manager
-thunderbird
+resource-agents-sap
+resource-agents-sap-hana
+resource-agents-sap-hana-scaleout
+rhel-system-roles-sap
+s390utils
+sap-cluster-connector
