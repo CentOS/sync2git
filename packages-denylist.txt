@@ -1,2 +1,8 @@
 # We shouldn't ever ship these packages...
 redhat-logos
+# Debranding packages?
+firefox
+gflags
+gnu-efi
+subscription-manager
+thunderbird
