@@ -199,7 +199,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
             tags_to_check = (tag_8, tag_8s)
             new_build = True
             for tag in tags:
-                print(" Mod tag check: {}".format(str(tag)))
+                # print(" Mod tag check: {}".format(str(tag)))
                 if str(tag) in tags_to_check:
                     new_build = False
                     print("Tag: ", tag)
@@ -290,12 +290,15 @@ def sync_modules_directly(unsynced_builds):
 
     for build in unsynced_builds:
         module_id = "module-" + build['nvr'][::-1].replace('.', '-', 1)[::-1]
-        tag = "c8-stream-1.0"
+        tag = "c8s-stream-" + build['version']
         mbs_url = "https://mbs.engineering.redhat.com/module-build-service/1/module-builds/?koji_tag={}&verbose=1".format(module_id)
         print(mbs_url)
         import urllib, json
         http_response= urllib.request.urlopen(mbs_url)
         module_spec_in_json = json.load(http_response)
+        if len(module_spec_in_json['items']) < 1:
+            print("** No items:", module_id)
+            continue
         modulemd = module_spec_in_json['items'][0]['modulemd']
         # print(modulemd)
         filename = "{}:modulemd.src.txt".format(build['nvr'])
@@ -304,7 +307,7 @@ def sync_modules_directly(unsynced_builds):
 
         print("Wrote:", filename)
         if data_downloadonly:
-            return
+            continue
 
         # print("alt-src --push --brew " + tag + " " + filename)
         os.system("alt-src --push --brew " + tag + " " + filename)
