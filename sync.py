@@ -192,7 +192,11 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                 tags = []
 
             # imports/c8-stream-1.0/libvirt-4.5.0-35.3.module+el8.1.0+5931+8897e7e1 
-            tags_to_check = ("imports/c8-stream-1.0/" + build['nvr'], "imports/c8s-stream-1.0/" + build['nvr'])
+            # This is actualy: imports/c8-stream-<version>/<nvr>
+            #                  imports/c8s-stream-<version>/<nvr>
+            tag_8 = "imports/c8-stream-" + build['version'] + '/' + build['nvr']
+            tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + build['nvr']
+            tags_to_check = (tag_8, tag_8s)
             new_build = True
             for tag in tags:
                 print(" Mod tag check: {}".format(str(tag)))
@@ -347,6 +351,10 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
     else:
         composed_builds = get_composed_modules(compose)
         tagged_builds = composed_modules2tagged_builds(composed_builds)
+        if __auto_compose_allowlist:
+            modules_to_track = set()
+            for build in tagged_builds:
+                modules_to_track.add(build['package_name'])
     if __test_print_tagged:
         from pprint import pprint
         pprint(tagged_builds)
