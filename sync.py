@@ -12,6 +12,9 @@ filter_cve = True
 # Just do the downloads, and don't alt-src
 data_downloadonly = False
 
+# Do we want to output build data, useful for debugging
+__output_build_lines = False
+
 # Do we want to include all packages from a compose...
 __auto_compose_allowlist = True
 
@@ -159,8 +162,9 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                 if str(tag) in tags_to_check:
                     new_build = False
                     print("Tag: ", tag)
-                    print("Build: ", build)
-                    print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
+                    if __output_build_lines:
+                        print("Build: ", build)
+                        print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
@@ -202,8 +206,9 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                 if str(tag) in tags_to_check:
                     new_build = False
                     print("Tag: ", tag)
-                    print("Build: ", build)
-                    print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
+                    if __output_build_lines:
+                        print("Build: ", build)
+                        print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
