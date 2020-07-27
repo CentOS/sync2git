@@ -37,6 +37,55 @@ def _read_lines(fname):
         ret.append(line)
     return ret
 
+# This is mostly copied and pasted from: koji_cli/commands.py rpminfo
+def koji_name2srpm(session, nvra):
+    """ Given an rpm nvra from mbs, convert it into an srpm nvr for CVE checker.
+    """
+    info = session.getRPM(nvra)
+    if info is None:
+        print("No such koji rpm: %s\n" % nvra)
+        return None
+
+    if info['epoch'] is None:
+        info['epoch'] = ""
+    else:
+        info['epoch'] = str(info['epoch']) + ":"
+
+    if info.get('external_repo_id'):
+        repo = session.getExternalRepo(info['external_repo_id'])
+        print("External Repository: %(name)s [%(id)i]" % repo)
+        print("External Repository url: %(url)s" % repo)
+        return None
+
+    buildinfo = session.getBuild(info['build_id'])
+    buildinfo['name'] = buildinfo['package_name']
+    buildinfo['arch'] = 'src'
+    epoch = buildinfo['epoch']
+    if buildinfo['epoch'] is None:
+        buildinfo['epoch'] = ""
+        epoch = '0'
+    else:
+        buildinfo['epoch'] = str(buildinfo['epoch']) + ":"
+
+    if False:
+            print("RPM Path: %s" %
+                  os.path.join(koji.pathinfo.build(buildinfo), koji.pathinfo.rpm(info)))
+            print("SRPM: %(epoch)s%(name)s-%(version)s-%(release)s [%(id)d]" % buildinfo)
+            print("SRPM Path: %s" %
+                  os.path.join(koji.pathinfo.build(buildinfo), koji.pathinfo.rpm(buildinfo)))
+    else:
+        snvr = buildinfo['name']
+        snvr += '-'
+        snvr += buildinfo['version']
+        snvr += '-'
+        snvr += buildinfo['release']
+        ent = {'package_name' : buildinfo['name'], 'nvr' : snvr,
+               # These aren't used atm.
+               'name' : buildinfo['name'], 'version' : buildinfo['version'],
+               'release' : buildinfo['release'],
+               'epoch' : None}
+        return ent
+
 def load_package_list():
     return _read_lines("packages.txt")
 
@@ -250,6 +299,40 @@ def check_cve_builds(tagged_builds):
         allowed_builds.append(build)
     return allowed_builds
 
+def modbuild2mbsjson(build):
+    module_id = "module-" + build['nvr'][::-1].replace('.', '-', 1)[::-1]
+    tag = "c8s-stream-" + build['version']
+    mbs_url = "https://mbs.engineering.redhat.com/module-build-service/1/module-builds/?koji_tag={}&verbose=1".format(module_id)
+    # print(mbs_url)
+    import urllib, json
+    http_response= urllib.request.urlopen(mbs_url)
+    module_spec_in_json = json.load(http_response)
+    return module_id, tag, module_spec_in_json
+
+def check_cve_modules(tagged_builds):
+    """
+    Look for any rpms in the modulebuilds that aren't allowed and filter them
+    """
+    if not filter_cve:
+        return tagged_builds
+    allowed_builds = []
+    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
+        module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
+        if len(module_spec_in_json['items']) < 1:
+            print("** No items:", module_id)
+            continue
+
+        failed = False
+        rpms = module_spec_in_json['items'][0]['tasks']['rpms']
+        for name in sorted(rpms):
+            ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
+            if not check_cve_builds([ent]):
+                failed = True
+                break
+        if not failed:
+            allowed_builds.append(build)
+    return allowed_builds
+
 def sync_through_pub(unsynced_builds):
     """
     Create `pub` jobs that will sync package builds with Centos repositories
@@ -292,14 +375,8 @@ def sync_modules_directly(unsynced_builds):
     This should be replaced by `sync_through_pub()` function at some point in future
     """
 
-    for build in unsynced_builds:
-        module_id = "module-" + build['nvr'][::-1].replace('.', '-', 1)[::-1]
-        tag = "c8s-stream-" + build['version']
-        mbs_url = "https://mbs.engineering.redhat.com/module-build-service/1/module-builds/?koji_tag={}&verbose=1".format(module_id)
-        print(mbs_url)
-        import urllib, json
-        http_response= urllib.request.urlopen(mbs_url)
-        module_spec_in_json = json.load(http_response)
+    for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
+        module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
         if len(module_spec_in_json['items']) < 1:
             print("** No items:", module_id)
             continue
@@ -367,6 +444,7 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
         pprint(tagged_builds)
         return
     unsynced_builds = check_unsynced_modules(tagged_builds, modules_to_track)
+    unsynced_builds = check_cve_modules(unsynced_builds)
     sync_modules_directly(unsynced_builds)
 
 def main():
