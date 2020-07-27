@@ -2,6 +2,8 @@ import koji as brew
 import json
 import sys
 import os
+import shutil
+import tempfile
 from optparse import OptionParser
 
 # Do we want to filter through the CVE checker
@@ -134,13 +136,12 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
     """
     unsynced_builds = []
 
-    corootdir = "/tmp/centos-sync-" + str(os.getpid()) + "/"
+    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync", dir="/tmp")
+    corootdir = tcoroot.name + '/'
     print("Using tmp dir:", corootdir)
-    os.makedirs(corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in packages_to_track:
             codir = corootdir + build['package_name']
-            os.system("rm -rf " + codir)
 
             giturl = "https://git.centos.org/rpms/"
             giturl += build['package_name']
@@ -164,8 +165,7 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
             # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
-            os.system("rm -rf " + codir)
-    os.system("rm -rf " + corootdir)
+            shutil.rmtree(codir, ignore_errors=True)
     return unsynced_builds
 
 def check_unsynced_modules(tagged_builds, modules_to_track):
@@ -173,13 +173,12 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
     Look for modules that are not synced with centos streams.
     """
     unsynced_builds = []
-    corootdir = "/tmp/centos-sync-mod-" + str(os.getpid()) + "/"
+    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-mod", dir="/tmp")
+    corootdir = tcoroot.name + '/'
     print("Using tmp dir:", corootdir)
-    os.makedirs(corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in modules_to_track:
             codir = corootdir + build['package_name']
-            os.system("rm -rf " + codir)
 
             giturl = "https://git.centos.org/modules/"
             giturl += build['package_name']
@@ -208,8 +207,8 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
+            shutil.rmtree(codir, ignore_errors=True)
 
-    os.system("rm -rf " + corootdir)
     return unsynced_builds
 
 def check_cve_builds(tagged_builds):
