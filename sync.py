@@ -151,6 +151,9 @@ def get_composed_modules(baseurl):
     return compose.dedup_modules(m)
 
 def composed_builds2tagged_builds(composed):
+    """
+    Convert compose package JSON data into build/nvr data from koji
+    """
     ret = []
     for pkg in composed:
         ent = {'package_name' : pkg.name, 'nvr' : pkg.nvr(),
@@ -161,6 +164,9 @@ def composed_builds2tagged_builds(composed):
     return ret
 
 def composed_modules2tagged_builds(composed):
+    """
+    Convert compose module JSON data into build/nvr data from koji
+    """
     ret = []
     for mod in composed:
         ent = {'package_name' : mod.name, 'nvr' : mod.nsvc(),
@@ -300,6 +306,9 @@ def check_cve_builds(tagged_builds):
     return allowed_builds
 
 def modbuild2mbsjson(build):
+    """
+    Given a module nvr contact MBS and return the JSON build data
+    """
     module_id = "module-" + build['nvr'][::-1].replace('.', '-', 1)[::-1]
     tag = "c8s-stream-" + build['version']
     mbs_url = "https://mbs.engineering.redhat.com/module-build-service/1/module-builds/?koji_tag={}&verbose=1".format(module_id)
