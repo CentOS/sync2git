@@ -328,6 +328,7 @@ def check_cve_modules(tagged_builds):
             ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
             if not check_cve_builds([ent]):
                 failed = True
+                print("Filtered Mod: ", build['nvr'])
                 break
         if not failed:
             allowed_builds.append(build)
