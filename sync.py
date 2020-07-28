@@ -433,6 +433,7 @@ def sync_modules_directly(unsynced_builds):
         sys.stdout.flush()
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
+        os.remove(filename)
 
 def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
     """
