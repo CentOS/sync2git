@@ -356,11 +356,12 @@ def main():
         for arg in sys.argv[2:]:
             n, v, r = '', None, None
             if '-' in arg:
-                n, arg = arg.rsplit('-', 1)
+                n, v = arg.rsplit('-', 1)
             else:
                 n = arg
-            if '-' in arg:
-                v, r = arg.rsplit('-', 1)
+            if '-' in n:
+                r = v
+                n, v = n.rsplit('-', 1)
             print("=" * 78)
             print("History:", arg, "(%s, %s, %s)" % (n, v, r))
             print("-" * 78)
