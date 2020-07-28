@@ -12,6 +12,9 @@ filter_cve = True
 # Just do the downloads, and don't alt-src
 data_downloadonly = False
 
+# This should never have CVEs and CVE checker hates it (timeout = fail).
+auto_passcvelist_module_packages = ["module-build-macros"]
+
 # Do we want to output build data, useful for debugging
 __output_build_lines = False
 
@@ -339,6 +342,8 @@ def check_cve_modules(kapi, tagged_builds):
         failed = False
         rpms = module_spec_in_json['items'][0]['tasks']['rpms']
         for name in sorted(rpms):
+            if name in auto_passcvelist_module_packages:
+                continue
             # ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
             ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".x86_64")
             if ent is None:
