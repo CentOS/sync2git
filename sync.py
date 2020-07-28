@@ -356,8 +356,13 @@ def sync_directly(unsynced_builds):
     This should be replaced by `sync_through_pub()` function at some point in future
     """
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
-        print("brew download-build --rpm " + build['nvr'] + ".src.rpm")
-        os.system("brew download-build --rpm " + build['nvr'] + ".src.rpm")
+        # FIXME: This should use the API...
+        cmd = "brew download-build --rpm"
+        if not sys.stdout.isatty():
+            cmd = "brew download-build --noprogress --rpm"
+        cmd += " " + build['nvr'] + ".src.rpm"
+        print(cmd)
+        os.system(cmd)
 
     if data_downloadonly:
         return
