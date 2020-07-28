@@ -185,8 +185,10 @@ def check_denylist_builds(builds, denylist):
     Look for any builds on the denylist, and remove them.
     """
     ret = []
-    for build in builds:
+    for build in sorted(builds, key=lambda x: x['package_name']):
         if build['package_name'] in denylist:
+            print("Denied Pkg: ", build['nvr'])
+            sys.stdout.flush()
             continue
         ret.append(build)
     return ret
@@ -458,8 +460,9 @@ def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
     # build = brew_proxy.getBuild(sys.argv[1]) # module
     # `nvr` attribute of `tagged_build` contains git tags
     # print(json.dumps(tagged_builds, indent=4, sort_keys=True, separators=[",",":"]))
-    unsynced_builds = check_unsynced_builds(tagged_builds, packages_to_track)
+    unsynced_builds = tagged_builds
     unsynced_builds = check_denylist_builds(unsynced_builds, denylist)
+    unsynced_builds = check_unsynced_builds(unsynced_builds, packages_to_track)
     unsynced_builds = check_cve_builds(unsynced_builds)
     # sync_through_pub(unsynced_builds)
     sync_directly(unsynced_builds)
