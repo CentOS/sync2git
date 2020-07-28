@@ -220,9 +220,11 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                     if __output_build_lines:
                         print("Build: ", build)
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
+                    break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
+            sys.stdout.flush()
             # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
             shutil.rmtree(codir, ignore_errors=True)
     return unsynced_builds
@@ -264,9 +266,11 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                     if __output_build_lines:
                         print("Build: ", build)
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
+                    break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
                 unsynced_builds.append(build)
+            sys.stdout.flush()
             shutil.rmtree(codir, ignore_errors=True)
 
     return unsynced_builds
@@ -301,6 +305,7 @@ def check_cve_builds(tagged_builds):
         req = reqs[build['nvr']]
         if not req.allow():
             print("Filtered Pkg: ", req)
+            sys.stdout.flush()
             continue
         allowed_builds.append(build)
     return allowed_builds
@@ -340,11 +345,13 @@ def check_cve_modules(kapi, tagged_builds):
                 ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".noarch")
             if ent is None: # Fail?
                 print("Skipping CVE lookup:", rpms[name]['nvr'])
+                sys.stdout.flush()
                 continue
 
             if not check_cve_builds([ent]):
                 failed = True
                 print("Filtered Mod: ", build['nvr'])
+                sys.stdout.flush()
                 break
         if not failed:
             allowed_builds.append(build)
@@ -379,16 +386,20 @@ def sync_directly(unsynced_builds):
             cmd = "brew download-build --noprogress --rpm"
         cmd += " " + build['nvr'] + ".src.rpm"
         print(cmd)
+        sys.stdout.flush()
         os.system(cmd)
 
     if data_downloadonly:
         return
 
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
+        print("alt-src", build['nvr'])
+        sys.stdout.flush()
         os.system("alt-src -d --push c8s " + build['nvr'] + ".src.rpm")
 
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         print("Removing " + build['nvr'] + ".src.rpm...")
+        sys.stdout.flush()
         os.remove(build['nvr'] + ".src.rpm")
 
 def sync_modules_directly(unsynced_builds):
@@ -413,6 +424,8 @@ def sync_modules_directly(unsynced_builds):
             continue
 
         # print("alt-src --push --brew " + tag + " " + filename)
+        print("alt-src", tag, filename)
+        sys.stdout.flush()
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
 
