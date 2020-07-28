@@ -318,7 +318,7 @@ def modbuild2mbsjson(build):
     module_spec_in_json = json.load(http_response)
     return module_id, tag, module_spec_in_json
 
-def check_cve_modules(tagged_builds):
+def check_cve_modules(kapi, tagged_builds):
     """
     Look for any rpms in the modulebuilds that aren't allowed and filter them
     """
@@ -334,7 +334,14 @@ def check_cve_modules(tagged_builds):
         failed = False
         rpms = module_spec_in_json['items'][0]['tasks']['rpms']
         for name in sorted(rpms):
-            ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
+            # ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
+            ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".x86_64")
+            if ent is None:
+                ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".noarch")
+            if ent is None: # Fail?
+                print("Skipping CVE lookup:", rpms[name]['nvr'])
+                continue
+
             if not check_cve_builds([ent]):
                 failed = True
                 print("Filtered Mod: ", build['nvr'])
@@ -459,7 +466,7 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
         pprint(tagged_builds)
         return
     unsynced_builds = check_unsynced_modules(tagged_builds, modules_to_track)
-    unsynced_builds = check_cve_modules(unsynced_builds)
+    unsynced_builds = check_cve_modules(brew_proxy, unsynced_builds)
     sync_modules_directly(unsynced_builds)
 
 def main():
