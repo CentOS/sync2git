@@ -16,3 +16,6 @@ resource-agents-sap-hana-scaleout
 rhel-system-roles-sap
 s390utils
 sap-cluster-connector
+# 2020-07-28 kernel additions...
+kernel
+kernel-rt
