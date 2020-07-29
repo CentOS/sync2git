@@ -531,6 +531,8 @@ def main():
         sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track, denylist)
     if options.sync_modules:
         sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track)
+    if not sys.stdout.isatty():
+        print(" -- Done --")
 
 # Badly written but working python script
 if __name__ == "__main__":
