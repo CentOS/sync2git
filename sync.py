@@ -199,7 +199,7 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
     """
     unsynced_builds = []
 
-    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync", dir="/tmp")
+    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-", dir="/tmp")
     corootdir = tcoroot.name + '/'
     print("Using tmp dir:", corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
@@ -228,6 +228,8 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
+                for tag in sorted(tags):
+                    print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
             # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
@@ -239,7 +241,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
     Look for modules that are not synced with centos streams.
     """
     unsynced_builds = []
-    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-mod", dir="/tmp")
+    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-mod-", dir="/tmp")
     corootdir = tcoroot.name + '/'
     print("Using tmp dir:", corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
@@ -274,6 +276,8 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
+                for tag in sorted(tags):
+                    print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
             shutil.rmtree(codir, ignore_errors=True)
@@ -521,6 +525,8 @@ def main():
     if options.download_only:
         global data_downloadonly
         data_downloadonly = True
+    else:
+        print(" ** Warning: This will run alt-src to push packages/modules.")
     if options.sync_packages:
         sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track, denylist)
     if options.sync_modules:
