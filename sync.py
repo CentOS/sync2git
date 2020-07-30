@@ -228,7 +228,7 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
-                for tag in sorted(tags):
+                for tag in sorted([str(x) for x in tags]):
                     print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
@@ -276,7 +276,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
-                for tag in sorted(tags):
+                for tag in sorted([str(x) for x in tags]):
                     print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
