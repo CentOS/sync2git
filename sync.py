@@ -30,14 +30,15 @@ if not __test_print_tagged:
 def _read_lines(fname):
     """ Read the lines from a file, removeing extra whitespace and comments. """
     ret = []
-    for line in open(fname):
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith('#'):
-            continue
+    with open(fname) as file_to_read:
+        for line in file_to_read:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('#'):
+                continue
 
-        ret.append(line)
+            ret.append(line)
     return ret
 
 # This is mostly copied and pasted from: koji_cli/commands.py rpminfo
