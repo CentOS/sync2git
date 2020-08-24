@@ -300,8 +300,25 @@ def main():
     m = modules_from_compose(mdata)
     m = dedup_modules(m)
     print(' Modules:', len(m))
+    done = False
     for module in sorted(m):
         print("    {}-{}-{}-{}".format(module.name, module.stream, module.version, module.context))
+        if not done:
+            done = True
+            try:
+                import sync
+            except:
+                sync = None
+        if sync is not None:
+            build = sync.composed_modules2tagged_builds([module])[0]
+            module_id, tag, module_spec_in_json = sync.modbuild2mbsjson(build)
+            if len(module_spec_in_json['items']) < 1:
+                print("** No items:", module_id)
+                continue
+            rpms = module_spec_in_json['items'][0]['tasks'].get('rpms', [])
+            for name in sorted(rpms):
+                print("        {} {}".format(name, tag))
+
 
 if __name__ == '__main__':
     main()
