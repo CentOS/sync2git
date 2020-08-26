@@ -259,11 +259,11 @@ def check_extra_rpms(kapi, build, modcodir):
             sys.stdout.flush()
             continue
 
-        if ent['package-name'] in srpms:
+        if ent['package_name'] in srpms:
             continue
-        srpms.add(ent['package-name'])
+        srpms.add(ent['package_name'])
 
-        tags = build2git_tags(ent, modcodir + "/" + ent['package-name'])
+        tags = build2git_tags(ent, modcodir + "/" + ent['package_name'])
         # Eg. from the module: pki-deps-10.6-8030020200527165326-30b713e6
         # imports/c8s-stream-10.6/glassfish-jax-rs-api-2.0.1-6.module+el8.2.0+5723+4574fbff 
         tag_8 = "imports/c8-stream-" + build['version'] + '/' + ent['nvr']
