@@ -15,6 +15,9 @@ data_downloadonly = False
 # This should never have CVEs and CVE checker hates it (timeout = fail).
 auto_passcvelist_module_packages = ["module-build-macros"]
 
+# Do we want to output old tags data, useful for debugging
+__output_old_tags = False
+
 # Do we want to output build data, useful for debugging
 __output_build_lines = False
 
@@ -46,7 +49,6 @@ def koji_name2srpm(session, nvra):
     """
     info = session.getRPM(nvra)
     if info is None:
-        print("No such koji rpm: %s\n" % nvra)
         return None
 
     if info['epoch'] is None:
@@ -233,8 +235,9 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
-                for tag in sorted([str(x) for x in tags]):
-                    print("  Old Tag:", tag)
+                if __output_old_tags:
+                    for tag in sorted([str(x) for x in tags]):
+                        print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
             # TODO: Ideally we should keep this directory and fetch latest tags to avoid repeated clones
@@ -253,6 +256,9 @@ def check_extra_rpms(kapi, build, modcodir):
     rpms = module_spec_in_json['items'][0]['tasks'].get('rpms', [])
     srpms = set()
     for name in sorted(rpms):
+        if name in auto_passcvelist_module_packages:
+            continue
+
         ent = json_nvr2koji_srpm(kapi, rpms[name]['nvr'])
         if ent is None: # Fail?
             print("Skipping extra check:", rpms[name]['nvr'])
@@ -280,8 +286,9 @@ def check_extra_rpms(kapi, build, modcodir):
             continue
 
         print(("  ** PKG %s in mod %s needs to be updated to %s") % (ent['package_name'], build['nvr'], ent['nvr']))
-        for tag in sorted([str(x) for x in tags]):
-            print("  * Old Tag:", tag)
+        if __output_old_tags:
+            for tag in sorted([str(x) for x in tags]):
+                print("     * Old Tag:", tag)
         ret.append(ent)
     return ret
 
@@ -321,8 +328,9 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
-                for tag in sorted([str(x) for x in tags]):
-                    print("  Old Tag:", tag)
+                if __output_old_tags:
+                    for tag in sorted([str(x) for x in tags]):
+                        print("  Old Tag:", tag)
                 unsynced_builds.append(build)
             sys.stdout.flush()
             shutil.rmtree(codir, ignore_errors=True)
@@ -381,6 +389,8 @@ def json_nvr2koji_srpm(kapi, rpmnvr):
     ent = koji_name2srpm(kapi, rpmnvr + ".x86_64")
     if ent is None:
         ent = koji_name2srpm(kapi, rpmnvr + ".noarch")
+    if ent is None:
+        print("No such koji rpm: %s" % rpmnvr)
     return ent
 
 def check_cve_modules(kapi, tagged_builds):
