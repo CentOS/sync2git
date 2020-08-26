@@ -244,10 +244,29 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             shutil.rmtree(codir, ignore_errors=True)
     return unsynced_builds
 
+# Given:
+# perl-IO-Tty-1.12-12.module+el8.3.0+6446+37a50855
+# We want to match to:
+# perl-IO-Tty-1.12-12.module+el8.3.0+6446+594cad75
+def nvr2shared_nvr(nvr):
+    val = nvr.rfind('+') # Remove the +37a50855 suffix
+    if val != -1:
+        nvr = nvr[:val]
+    if False: # Just remove the last bit?
+        return nvr
+    val = nvr.rfind('+') # Remove the +6446 suffix
+    if val != -1:
+        nvr = nvr[:val]
+    return nvr
+
 def check_extra_rpms(kapi, build, modcodir):
     """
     Check all the rpms within a module and make sure they are also pushed.
     """
+# Is this good or bad?
+#   ** PKG perl-IO-Tty in mod perl-IO-Socket-SSL-2.066-8030020200430120526.ea09926d needs to be updated to perl-IO-Tty-1.12-12.module+el8.3.0+6446+37a50855
+#   * Old Tag: imports/c8s-stream-2.066/perl-IO-Tty-1.12-12.module+el8.3.0+6446+594cad75
+
     ret = []
     module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
     if len(module_spec_in_json['items']) < 1:
@@ -275,10 +294,23 @@ def check_extra_rpms(kapi, build, modcodir):
         tag_8 = "imports/c8-stream-" + build['version'] + '/' + ent['nvr']
         tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + ent['nvr']
         tags_to_check = (tag_8, tag_8s)
+        nvr = nvr2shared_nvr(ent['nvr'])
+        tag_8 = "imports/c8-stream-" + build['version'] + '/' + nvr
+        tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + nvr
+        tags_to_prefix = (tag_8, tag_8s)
         new_build = True
         for tag in tags:
             if str(tag) not in tags_to_check:
                 continue
+            print("  Pkg mod tag: ", str(tag))
+            new_build = False
+            break
+
+        for tag in tags:
+            stag = nvr2shared_nvr(str(tag))
+            if nvr2shared_nvr(str(tag)) not in tags_to_prefix:
+                continue
+            print("  Pkg mod tag: ", str(tag), "(shared:",  stag + ")")
             new_build = False
             break
 
