@@ -193,6 +193,20 @@ def check_denylist_builds(builds, denylist):
         ret.append(build)
     return ret
 
+def build2git_tags(build, codir, T="rpms"):
+    giturl = "https://git.centos.org/"
+    giturl += T
+    giturl += "/"
+    giturl += build['package_name']
+    giturl += ".git"
+    try:
+        repo = git.Repo.clone_from(giturl, codir)
+        tags = repo.tags
+    except git.exc.GitCommandError:
+        # This means the clone didn't work, so it's a new package.
+        tags = []
+    return tags
+
 def check_unsynced_builds(tagged_builds, packages_to_track):
     """
     Look for builds that are not synced with centos streams
@@ -206,16 +220,7 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
         if build['package_name'] in packages_to_track:
             codir = corootdir + build['package_name']
 
-            giturl = "https://git.centos.org/rpms/"
-            giturl += build['package_name']
-            giturl += ".git"
-            try:
-                repo = git.Repo.clone_from(giturl, codir)
-                tags = repo.tags
-            except git.exc.GitCommandError:
-                # This means the clone didn't work, so it's a new package.
-                tags = []
-
+            tags = build2git_tags(build, codir)
             tags_to_check = ("imports/c8s/" + build['nvr'], "imports/c8/" + build['nvr'])
             new_build = True
             for tag in tags:
@@ -236,11 +241,56 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             shutil.rmtree(codir, ignore_errors=True)
     return unsynced_builds
 
-def check_unsynced_modules(tagged_builds, modules_to_track):
+def check_extra_rpms(kapi, build, modcodir):
+    """
+    Check all the rpms within a module and make sure they are also pushed.
+    """
+    ret = []
+    module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
+    if len(module_spec_in_json['items']) < 1:
+        print("** No items:", module_id)
+        return
+    rpms = module_spec_in_json['items'][0]['tasks'].get('rpms', [])
+    srpms = set()
+    for name in sorted(rpms):
+        ent = json_nvr2koji_srpm(kapi, rpms[name]['nvr'])
+        if ent is None: # Fail?
+            print("Skipping extra check:", rpms[name]['nvr'])
+            sys.stdout.flush()
+            continue
+
+        if ent['package-name'] in srpms:
+            continue
+        srpms.add(ent['package-name'])
+
+        tags = build2git_tags(ent, modcodir + "/" + ent['package-name'])
+        # Eg. from the module: pki-deps-10.6-8030020200527165326-30b713e6
+        # imports/c8s-stream-10.6/glassfish-jax-rs-api-2.0.1-6.module+el8.2.0+5723+4574fbff 
+        tag_8 = "imports/c8-stream-" + build['version'] + '/' + ent['nvr']
+        tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + ent['nvr']
+        tags_to_check = (tag_8, tag_8s)
+        new_build = True
+        for tag in tags:
+            if str(tag) not in tags_to_check:
+                continue
+            new_build = False
+            break
+
+        if not new_build:
+            continue
+
+        print(("  ** PKG %s in mod %s needs to be updated to %s") % (ent['package_name'], build['nvr'], ent['nvr']))
+        for tag in sorted([str(x) for x in tags]):
+            print("  * Old Tag:", tag)
+        ret.append(ent)
+    return ret
+
+def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
     """
     Look for modules that are not synced with centos streams.
     """
     unsynced_builds = []
+    extra_pkg_builds = []
     tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-mod-", dir="/tmp")
     corootdir = tcoroot.name + '/'
     print("Using tmp dir:", corootdir)
@@ -248,15 +298,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
         if build['package_name'] in modules_to_track:
             codir = corootdir + build['package_name']
 
-            giturl = "https://git.centos.org/modules/"
-            giturl += build['package_name']
-            giturl += ".git"
-            try:
-                repo = git.Repo.clone_from(giturl, codir)
-                tags = repo.tags
-            except git.exc.GitCommandError:
-                # This means the clone didn't work, so it's a new module.
-                tags = []
+            tags = build2git_tags(build, codir+"/_mod", T="modules")
 
             # imports/c8-stream-1.0/libvirt-4.5.0-35.3.module+el8.1.0+5931+8897e7e1 
             # This is actualy: imports/c8-stream-<version>/<nvr>
@@ -273,6 +315,9 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
                     if __output_build_lines:
                         print("Build: ", build)
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
+                    # Now we have to check the rpms within the module, because
+                    # it doesn't push them all sometimes ... sigh.
+                    extra_pkg_builds.extend(check_extra_rpms(kapi, build,codir))
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
@@ -282,7 +327,7 @@ def check_unsynced_modules(tagged_builds, modules_to_track):
             sys.stdout.flush()
             shutil.rmtree(codir, ignore_errors=True)
 
-    return unsynced_builds
+    return unsynced_builds, extra_pkg_builds
 
 def check_cve_builds(tagged_builds):
     """
@@ -332,6 +377,12 @@ def modbuild2mbsjson(build):
     module_spec_in_json = json.load(http_response)
     return module_id, tag, module_spec_in_json
 
+def json_nvr2koji_srpm(kapi, rpmnvr):
+    ent = koji_name2srpm(kapi, rpmnvr + ".x86_64")
+    if ent is None:
+        ent = koji_name2srpm(kapi, rpmnvr + ".noarch")
+    return ent
+
 def check_cve_modules(kapi, tagged_builds):
     """
     Look for any rpms in the modulebuilds that aren't allowed and filter them
@@ -346,14 +397,12 @@ def check_cve_modules(kapi, tagged_builds):
             continue
 
         failed = False
-        rpms = module_spec_in_json['items'][0]['tasks']['rpms']
+        rpms = module_spec_in_json['items'][0]['tasks'].get('rpms', [])
         for name in sorted(rpms):
             if name in auto_passcvelist_module_packages:
                 continue
             # ent = {'package_name' : name, 'nvr' : rpms[name]['nvr']}
-            ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".x86_64")
-            if ent is None:
-                ent = koji_name2srpm(kapi, rpms[name]['nvr'] + ".noarch")
+            ent = json_nvr2koji_srpm(kapi, rpms[name]['nvr'])
             if ent is None: # Fail?
                 print("Skipping CVE lookup:", rpms[name]['nvr'])
                 sys.stdout.flush()
@@ -491,9 +540,13 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
         from pprint import pprint
         pprint(tagged_builds)
         return
-    unsynced_builds = check_unsynced_modules(tagged_builds, modules_to_track)
+    kapi = brew_proxy
+    unsynced_builds, extra_pkgs = check_unsynced_modules(kapi, tagged_builds,
+                                                         modules_to_track)
     unsynced_builds = check_cve_modules(brew_proxy, unsynced_builds)
     sync_modules_directly(unsynced_builds)
+    # These are the extra rpms needed for already pushed modules...
+    sync_directly(extra_pkgs)
 
 def main():
     parser = OptionParser()
