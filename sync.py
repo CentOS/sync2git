@@ -291,26 +291,15 @@ def check_extra_rpms(kapi, build, modcodir):
         tags = build2git_tags(ent, modcodir + "/" + ent['package_name'])
         # Eg. from the module: pki-deps-10.6-8030020200527165326-30b713e6
         # imports/c8s-stream-10.6/glassfish-jax-rs-api-2.0.1-6.module+el8.2.0+5723+4574fbff 
-        tag_8 = "imports/c8-stream-" + build['version'] + '/' + ent['nvr']
-        tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + ent['nvr']
-        tags_to_check = (tag_8, tag_8s)
         nvr = nvr2shared_nvr(ent['nvr'])
         tag_8 = "imports/c8-stream-" + build['version'] + '/' + nvr
         tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + nvr
-        tags_to_prefix = (tag_8, tag_8s)
+        tags_to_check = (tag_8, tag_8s)
         new_build = True
         for tag in tags:
-            if str(tag) not in tags_to_check:
+            if nvr2shared_nvr(str(tag)) not in tags_to_check:
                 continue
-            print("  Pkg mod tag: ", str(tag))
-            new_build = False
-            break
-
-        for tag in tags:
-            stag = nvr2shared_nvr(str(tag))
-            if nvr2shared_nvr(str(tag)) not in tags_to_prefix:
-                continue
-            print("  Pkg mod tag: ", str(tag), "(shared:",  stag + ")")
+            print("  Pkg mod tag: ", str(tag), "(shared:",  ent['nvr'] + ")")
             new_build = False
             break
 
