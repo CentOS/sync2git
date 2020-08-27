@@ -228,7 +228,8 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             for tag in tags:
                 if str(tag) in tags_to_check:
                     new_build = False
-                    print("Tag: ", tag)
+                    uitag = str(tag)[len("imports/"):]
+                    print("Tag: ", uitag)
                     if __output_build_lines:
                         print("Build: ", build)
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
@@ -299,7 +300,11 @@ def check_extra_rpms(kapi, build, modcodir):
         for tag in tags:
             if nvr2shared_nvr(str(tag)) not in tags_to_check:
                 continue
-            print("  Pkg mod tag: ", str(tag), "(shared:",  ent['nvr'] + ")")
+            uitag = str(tag)[len("imports/"):]
+            if uitag.endswith(ent['nvr']): # Direct match.
+                print("  Pkg mod tag: ", uitag)
+            else:
+                print("  Pkg mod tag: ", uitag, "(shared:",  ent['nvr'] +")")
             new_build = False
             break
 
@@ -339,7 +344,8 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
                 # print(" Mod tag check: {}".format(str(tag)))
                 if str(tag) in tags_to_check:
                     new_build = False
-                    print("Tag: ", tag)
+                    uitag = str(tag)[len("imports/"):]
+                    print("Tag: ", uitag)
                     if __output_build_lines:
                         print("Build: ", build)
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
