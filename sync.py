@@ -314,6 +314,7 @@ def check_extra_rpms(kapi, build, modcodir):
         if not new_build:
             continue
 
+        ent['_git-branch'] = 'c8s-stream-' + build['version']
         print(("  ** PKG %s in mod %s needs to be updated to %s") % (ent['package_name'], build['nvr'], ent['nvr']))
         if __output_old_tags:
             for tag in sorted([str(x) for x in tags]):
@@ -491,9 +492,12 @@ def sync_directly(unsynced_builds):
         return
 
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
-        print("alt-src", build['nvr'])
+        branch = "c8s"
+        if '_git-branch' in build:
+            branch = build['_git-branch']
+        print("alt-src", branch, build['nvr'])
         sys.stdout.flush()
-        os.system("alt-src -d --push c8s " + build['nvr'] + ".src.rpm")
+        os.system("alt-src -d --push " + branch+" " + build['nvr'] + ".src.rpm")
 
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         print("Removing " + build['nvr'] + ".src.rpm...")
