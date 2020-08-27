@@ -7,10 +7,13 @@ import tempfile
 from optparse import OptionParser
 
 # Do we want to filter through the CVE checker
-filter_cve = True
+conf_filter_cve = True
+
+# Do we want to check pushed modules for any rpms that need pushing
+conf_check_extra_rpms = True
 
 # Just do the downloads, and don't alt-src
-data_downloadonly = False
+conf_data_downloadonly = False
 
 # This should never have CVEs and CVE checker hates it (timeout = fail).
 auto_passcvelist_module_packages = ["module-build-macros"]
@@ -278,6 +281,9 @@ def check_extra_rpms(kapi, build, modcodir, extras):
     """
     Check all the rpms within a module and make sure they are also pushed.
     """
+    if not conf_check_extra_rpms:
+        return
+
 # Is this good or bad?
 #   ** PKG perl-IO-Tty in mod perl-IO-Socket-SSL-2.066-8030020200430120526.ea09926d needs to be updated to perl-IO-Tty-1.12-12.module+el8.3.0+6446+37a50855
 #   * Old Tag: imports/c8s-stream-2.066/perl-IO-Tty-1.12-12.module+el8.3.0+6446+594cad75
@@ -384,7 +390,7 @@ def check_cve_builds(tagged_builds):
     """
     Look for builds that aren't allowed and filter them
     """
-    if not filter_cve:
+    if not conf_filter_cve:
         return tagged_builds
     import access
 
@@ -438,7 +444,7 @@ def check_cve_modules(kapi, tagged_builds):
     """
     Look for any rpms in the modulebuilds that aren't allowed and filter them
     """
-    if not filter_cve:
+    if not conf_filter_cve:
         return tagged_builds
     allowed_builds = []
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
@@ -500,16 +506,19 @@ def sync_directly(unsynced_builds):
         sys.stdout.flush()
         os.system(cmd)
 
-    if data_downloadonly:
-        return
-
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         branch = "c8s"
         if '_git-branch' in build:
             branch = build['_git-branch']
+        if conf_data_downloadonly:
+            print("!alt-src", branch, build['nvr'])
+            continue
         print("alt-src", branch, build['nvr'])
         sys.stdout.flush()
         os.system("alt-src -d --push " + branch+" " + build['nvr'] + ".src.rpm")
+
+    if conf_data_downloadonly:
+        return
 
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         print("Removing " + build['nvr'] + ".src.rpm...")
@@ -534,7 +543,8 @@ def sync_modules_directly(unsynced_builds):
             modulemd_file.write(modulemd)
 
         print("Wrote:", filename)
-        if data_downloadonly:
+        if conf_data_downloadonly:
+            print("!alt-src", tag, filename)
             continue
 
         # print("alt-src --push --brew " + tag + " " + filename)
@@ -630,8 +640,8 @@ def main():
     denylist = set(denylist)
 
     if options.download_only:
-        global data_downloadonly
-        data_downloadonly = True
+        global conf_data_downloadonly
+        conf_data_downloadonly = True
     else:
         print(" ** Warning: This will run alt-src to push packages/modules.")
     if options.sync_packages:
