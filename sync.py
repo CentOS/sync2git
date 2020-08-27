@@ -263,7 +263,18 @@ def nvr2shared_nvr(nvr):
         nvr = nvr[:val]
     return nvr
 
-def check_extra_rpms(kapi, build, modcodir):
+def find_shared_nvr(nvr, builds):
+    """
+    Given a shared nvr, search through all the build dicts. and see if it
+    matches.
+    """
+    for build in builds:
+        snvr = nvr2shared_nvr(build['nvr'])
+        if snvr == nvr:
+            return True
+    return False
+
+def check_extra_rpms(kapi, build, modcodir, extras):
     """
     Check all the rpms within a module and make sure they are also pushed.
     """
@@ -271,7 +282,6 @@ def check_extra_rpms(kapi, build, modcodir):
 #   ** PKG perl-IO-Tty in mod perl-IO-Socket-SSL-2.066-8030020200430120526.ea09926d needs to be updated to perl-IO-Tty-1.12-12.module+el8.3.0+6446+37a50855
 #   * Old Tag: imports/c8s-stream-2.066/perl-IO-Tty-1.12-12.module+el8.3.0+6446+594cad75
 
-    ret = []
     module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
     if len(module_spec_in_json['items']) < 1:
         print("** No items:", module_id)
@@ -292,10 +302,13 @@ def check_extra_rpms(kapi, build, modcodir):
             continue
         srpms.add(ent['package_name'])
 
+        nvr = nvr2shared_nvr(ent['nvr'])
+        if find_shared_nvr(nvr, extras):
+            continue
+
         tags = build2git_tags(ent, modcodir + "/" + ent['package_name'])
         # Eg. from the module: pki-deps-10.6-8030020200527165326-30b713e6
         # imports/c8s-stream-10.6/glassfish-jax-rs-api-2.0.1-6.module+el8.2.0+5723+4574fbff 
-        nvr = nvr2shared_nvr(ent['nvr'])
         tag_8 = "imports/c8-stream-" + build['version'] + '/' + nvr
         tag_8s ="imports/c8s-stream-"+ build['version'] + '/' + nvr
         tags_to_check = (tag_8, tag_8s)
@@ -319,8 +332,7 @@ def check_extra_rpms(kapi, build, modcodir):
         if __output_old_tags:
             for tag in sorted([str(x) for x in tags]):
                 print("     * Old Tag:", tag)
-        ret.append(ent)
-    return ret
+        extras.append(ent)
 
 def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
     """
@@ -355,7 +367,7 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
                         print( ("%s is already updated to %s") % (build['package_name'], build['nvr']) )
                     # Now we have to check the rpms within the module, because
                     # it doesn't push them all sometimes ... sigh.
-                    extra_pkg_builds.extend(check_extra_rpms(kapi, build,codir))
+                    check_extra_rpms(kapi, build, codir, extra_pkg_builds)
                     break
             if new_build:
                 print( ("%s needs to be updated to %s") % (build['package_name'], build['nvr']) )
