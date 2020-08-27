@@ -43,9 +43,39 @@ def _read_lines(fname):
         ret.append(line)
     return ret
 
+# This is mostly hacked from: koji_cli/commands.py buildinfo/rpminfo
+def koji_nvr2srpm(session, nvr):
+    """ Given an rpm nvr, convert it into an srpm nvr for CVE checker.
+        Also takes a build_id, due to API leakage.
+    """
+    buildinfo = session.getBuild(nvr)
+    if buildinfo is None:
+        return None
+
+    buildinfo['name'] = buildinfo['package_name']
+    buildinfo['arch'] = 'src'
+    epoch = buildinfo['epoch']
+    if buildinfo['epoch'] is None:
+        buildinfo['epoch'] = ""
+        epoch = '0'
+    else:
+        buildinfo['epoch'] = str(buildinfo['epoch']) + ":"
+
+    snvr = buildinfo['name']
+    snvr += '-'
+    snvr += buildinfo['version']
+    snvr += '-'
+    snvr += buildinfo['release']
+    ent = {'package_name' : buildinfo['name'], 'nvr' : snvr,
+           # These aren't used atm.
+           'name' : buildinfo['name'], 'version' : buildinfo['version'],
+           'release' : buildinfo['release'],
+           'epoch' : None}
+    return ent
+
 # This is mostly copied and pasted from: koji_cli/commands.py rpminfo
-def koji_name2srpm(session, nvra):
-    """ Given an rpm nvra from mbs, convert it into an srpm nvr for CVE checker.
+def koji_nvra2srpm(session, nvra):
+    """ Given an rpm nvra, convert it into an srpm nvr for CVE checker.
     """
     info = session.getRPM(nvra)
     if info is None:
@@ -62,34 +92,7 @@ def koji_name2srpm(session, nvra):
         print("External Repository url: %(url)s" % repo)
         return None
 
-    buildinfo = session.getBuild(info['build_id'])
-    buildinfo['name'] = buildinfo['package_name']
-    buildinfo['arch'] = 'src'
-    epoch = buildinfo['epoch']
-    if buildinfo['epoch'] is None:
-        buildinfo['epoch'] = ""
-        epoch = '0'
-    else:
-        buildinfo['epoch'] = str(buildinfo['epoch']) + ":"
-
-    if False:
-            print("RPM Path: %s" %
-                  os.path.join(koji.pathinfo.build(buildinfo), koji.pathinfo.rpm(info)))
-            print("SRPM: %(epoch)s%(name)s-%(version)s-%(release)s [%(id)d]" % buildinfo)
-            print("SRPM Path: %s" %
-                  os.path.join(koji.pathinfo.build(buildinfo), koji.pathinfo.rpm(buildinfo)))
-    else:
-        snvr = buildinfo['name']
-        snvr += '-'
-        snvr += buildinfo['version']
-        snvr += '-'
-        snvr += buildinfo['release']
-        ent = {'package_name' : buildinfo['name'], 'nvr' : snvr,
-               # These aren't used atm.
-               'name' : buildinfo['name'], 'version' : buildinfo['version'],
-               'release' : buildinfo['release'],
-               'epoch' : None}
-        return ent
+    return koji_nvr2srpm(session, info['build_id'])
 
 def load_package_list():
     return _read_lines("packages.txt")
@@ -413,9 +416,7 @@ def modbuild2mbsjson(build):
     return module_id, tag, module_spec_in_json
 
 def json_nvr2koji_srpm(kapi, rpmnvr):
-    ent = koji_name2srpm(kapi, rpmnvr + ".x86_64")
-    if ent is None:
-        ent = koji_name2srpm(kapi, rpmnvr + ".noarch")
+    ent = koji_nvr2srpm(kapi, rpmnvr)
     if ent is None:
         print("No such koji rpm: %s" % rpmnvr)
     return ent
