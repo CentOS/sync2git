@@ -525,12 +525,16 @@ def sync_directly(unsynced_builds):
         sys.stdout.flush()
         os.remove(build['nvr'] + ".src.rpm")
 
-def sync_modules_directly(unsynced_builds):
+def sync_modules_directly(kapi, unsynced_builds):
     """
     This is a temporary method to sync by directly uploading modules to centos repos
     This should be replaced by `sync_through_pub()` function at some point in future
     """
 
+    extra_pkg_builds = []
+    tcoroot = tempfile.TemporaryDirectory(prefix="centos-sync-mod2-",dir="/tmp")
+    corootdir = tcoroot.name + '/'
+    print("Using tmp dir:", corootdir)
     for build in sorted(unsynced_builds, key=lambda x: x['package_name']):
         module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
         if len(module_spec_in_json['items']) < 1:
@@ -553,6 +557,12 @@ def sync_modules_directly(unsynced_builds):
         os.system("alt-src --push --brew " + tag + " " + filename)
         # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
         os.remove(filename)
+
+        # Now we have to check the rpms within the module, because
+        # it doesn't push them all sometimes ... sigh.
+        codir = corootdir + build['package_name']
+        check_extra_rpms(kapi, build, codir, extra_pkg_builds)
+    return extra_pkg_builds
 
 def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
     """
@@ -608,9 +618,10 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
     unsynced_builds, extra_pkgs = check_unsynced_modules(kapi, tagged_builds,
                                                          modules_to_track)
     unsynced_builds = check_cve_modules(brew_proxy, unsynced_builds)
-    sync_modules_directly(unsynced_builds)
+    extra_pkg2 = sync_modules_directly(kapi, unsynced_builds)
     # These are the extra rpms needed for already pushed modules...
     sync_directly(extra_pkgs)
+    sync_directly(extra_pkg2)
 
 def main():
     parser = OptionParser()
