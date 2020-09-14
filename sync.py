@@ -16,7 +16,7 @@ conf_check_extra_rpms = True
 conf_data_downloadonly = False
 
 # Create temp. dirs. for alt-src.
-conf_alt_src_tmp = False
+conf_alt_src_tmp = True
 
 # This should never have CVEs and CVE checker hates it (timeout = fail).
 auto_passcvelist_module_packages = ["module-build-macros"]
