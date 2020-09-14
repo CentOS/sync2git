@@ -491,6 +491,16 @@ def sync_through_pub(unsynced_builds):
     # ipdb.set_trace()
     pass
 
+def alt_src_cmd_build(branch, build):
+    print("alt-src", branch, build['nvr'])
+    sys.stdout.flush()
+    os.system("alt-src -d --push " + branch+" " + build['nvr'] + ".src.rpm")
+
+def alt_src_cmd_module(tag, filename):
+    print("alt-src", tag, filename)
+    sys.stdout.flush()
+    os.system("alt-src --push --brew " + tag + " " + filename)
+
 def sync_directly(unsynced_builds):
     """
     This is a temporary method to sync by directly uploading rpms to centos repos
@@ -513,9 +523,7 @@ def sync_directly(unsynced_builds):
         if conf_data_downloadonly:
             print("!alt-src", branch, build['nvr'])
             continue
-        print("alt-src", branch, build['nvr'])
-        sys.stdout.flush()
-        os.system("alt-src -d --push " + branch+" " + build['nvr'] + ".src.rpm")
+        alt_src_cmd_build(branch, build)
 
     if conf_data_downloadonly:
         return
@@ -551,11 +559,7 @@ def sync_modules_directly(kapi, unsynced_builds):
             print("!alt-src", tag, filename)
             continue
 
-        # print("alt-src --push --brew " + tag + " " + filename)
-        print("alt-src", tag, filename)
-        sys.stdout.flush()
-        os.system("alt-src --push --brew " + tag + " " + filename)
-        # print("alt-src -v --push --koji c8-stream-1.0 container-tools-2.0-8020020200324071351.0d58ad57\:modulemd.src.txt")
+        alt_src_cmd_module(tag, filename)
         os.remove(filename)
 
         # Now we have to check the rpms within the module, because
