@@ -15,6 +15,9 @@ conf_check_extra_rpms = True
 # Just do the downloads, and don't alt-src
 conf_data_downloadonly = False
 
+# Create temp. dirs. for alt-src.
+conf_alt_src_tmp = False
+
 # This should never have CVEs and CVE checker hates it (timeout = fail).
 auto_passcvelist_module_packages = ["module-build-macros"]
 
@@ -491,15 +494,33 @@ def sync_through_pub(unsynced_builds):
     # ipdb.set_trace()
     pass
 
+def _alt_src_cmd(args):
+    cmd = "alt-src "
+    if not conf_alt_src_tmp:
+        return os.system(cmd + args)
+
+    tmpdir = tempfile.TemporaryDirectory(prefix="sync2git-altsrc-", dir="/tmp")
+
+    os.mkdir(tmpdir + "/stage")
+    os.mkdir(tmpdir + "/git")
+    os.mkdir(tmpdir + "/lookaside")
+
+    cmd += "-o stagedir=" + tmpdir + "stage "
+    cmd += "-o gitdir=" + tmpdir + "git "
+    cmd += "-o lookaside=" + tmpdir + "lookaside "
+
+    ret = os.system(cmd + args)
+    return ret
+
 def alt_src_cmd_build(branch, build):
     print("alt-src", branch, build['nvr'])
     sys.stdout.flush()
-    os.system("alt-src -d --push " + branch+" " + build['nvr'] + ".src.rpm")
+    _alt_src_cmd("-d --push " + branch + " " + build['nvr'] + ".src.rpm")
 
 def alt_src_cmd_module(tag, filename):
     print("alt-src", tag, filename)
     sys.stdout.flush()
-    os.system("alt-src --push --brew " + tag + " " + filename)
+    _alt_src_cmd("--push --brew " + tag + " " + filename)
 
 def sync_directly(unsynced_builds):
     """
