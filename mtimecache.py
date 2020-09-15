@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import sys
 
+import errno
 import random
 import time
 
@@ -79,6 +80,17 @@ def format_time(seconds, use_hours=True):
     minutes = minutes % 60
     return '%02i:%02i:%02i' % (hours, minutes, seconds)
 
+def unlink_f(filename):
+    """ Call os.unlink, but don't die if the file isn't there. This is the main
+        difference between "rm -f" and plain "rm". """
+    try:
+        os.unlink(filename)
+        return True
+    except OSError as e:
+        if e.errno not in (errno.ENOENT, errno.EPERM, errno.EACCES,errno.EROFS):
+            raise
+    return False
+
 def dbg(*data, **kwargs):
     if not _conf_debug:
         return
@@ -149,12 +161,19 @@ def fcached(fname, expire_min=None, expire_max=None):
 
     return True
 
-def ftouch(fname):
+def ftouch(fname, data=None, makedirs=True):
     try:
-        fo = open(fname, 'a') # w+ to trunc file as well...
+        if data is None:
+            fo = open(fname, 'a') # w+ to trunc file as well...
+        else:
+            fo = open(fname, 'w+') # w+ to trunc file as well...
     except IOError:
+        if not makedirs:
+            raise
         os.makedirs(os.path.dirname(fname))
-        return ftouch(fname)
+        return ftouch(fname, data=data, makedirs=False)
+    if data is not None:
+        fo.write(str(data))
     fo.close()
 
 def userhomedir():
@@ -181,6 +200,18 @@ def userappcachedir(app):
     cd = usercachedir()
     return cd + app + "/"
 
+# This is problematic with recursive dirs ... eh.
+def cache_dir(dname, min=None, max=None):
+    for fname in os.listdir(dname):
+        c = Cache(dname + '/' + fname, min, max)
+        yield c
+
+def clean_dir(dname, min=None, max=None):
+    if not os.path.exists(dname):
+        return
+
+    for c in cache_dir(dname, min=min, max=max):
+        c.cached()
 
 class Cache(object):
     def __init__(self, path, min=None, max=None):
@@ -202,14 +233,26 @@ class Cache(object):
     def __lt__(self, o):
         return self.path < o.path
 
-    def cached(self):
+    def cached(self, autocleanup=True):
+        """ Can we use the cached file. """
         if self._cached is None:
             self._cached = fcached(self.path, self._min, self._max)
+            if not self._cached and autocleanup: # Assumes files...
+                self.unlink()
 
         return self._cached
 
-    def touch(self):
-        ftouch(self.path)
+    def read(self):
+        """ Read the contents. """
+        return open(self.path).read()
+
+    def unlink(self):
+        """ Read the contents. """
+        unlink_f(self.path)
+
+    def touch(self, data=None):
+        """ Touch the file, possibly with data. """
+        ftouch(self.path, data=data)
         self._cached = None
 
 def main():
@@ -222,11 +265,16 @@ def main():
 
 Commands:
     help
-    cached <path>
-    touch  <path>
+    cached     <path>
+    cached-dir <path>
+    read       <path>
+    touch      <path>
+    write      data <path>
 
     userappcachedir"""
 
+    parser.add_option("-a", "--autocleanup",
+                      help="Automatically remove non-cache files", default=False, action="store_true")
     parser.add_option("", "--debug",
                       help="Debug output", default=_conf_debug, action="store_true")
     parser.add_option("", "--max",
@@ -257,7 +305,22 @@ Commands:
             parser.error("No path specified")
 
         c = Cache(args[1], options.min, options.max)
-        print("cached:", c.cached())
+        print("cached:", c.cached(options.autocleanup))
+    elif cmd == "cached-dir":
+        if len(args) < 2:
+            parser.error("No path specified")
+
+        for c in cache_dir(args[1], options.min, options.max):
+            print("name:", os.path.basename(c.path))
+            print("cached:", c.cached(options.autocleanup))
+    elif cmd == "read":
+        if len(args) < 2:
+            parser.error("No path specified")
+
+        c = Cache(args[1], options.min, options.max)
+        print("cached:", c.cached(options.autocleanup))
+        if c.cached():
+            print("data:", c.read())
     elif cmd == "touch":
         if len(args) < 2:
             parser.error("No path specified")
@@ -265,7 +328,16 @@ Commands:
         c = Cache(args[1], options.min, options.max)
         print("touch")
         c.touch()
-        print("cached:", c.cached())
+        print("cached:", c.cached(autocleanup=False))
+    elif cmd == "write":
+        if len(args) < 3:
+            parser.error("No data/path specified")
+
+        c = Cache(args[2], options.min, options.max)
+        print("touch")
+        c.touch(args[1])
+        print("cached:", c.cached(autocleanup=False))
+        print("data:", c.read())
     else:
         parser.error("invalid command: " + cmd)
 
