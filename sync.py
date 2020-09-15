@@ -558,7 +558,7 @@ def _alt_src_cmd(args):
         return os.system(cmd + args)
 
     td = tempfile.TemporaryDirectory(prefix="sync2git-altsrc-", dir="/tmp")
-    tmpdir = td.name
+    tmpdir = td.name + '/'
 
     os.mkdir(tmpdir + "/stage")
     os.mkdir(tmpdir + "/git")
