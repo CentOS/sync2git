@@ -18,7 +18,10 @@ use_multithreading = False
 
 sleep_beg = 0.1
 sleep_end = 8
-sleep_err = 20*60 # Kernel can take a _long_ time.
+sleep_err = 20 # Kernel can take a _long_ time, like almost 2 hours.
+               # But most packages take a couple of seconds, and some queries
+               # just timeout all the time. When we rerun we'll see the history
+               # and pass it.
 
 def _data_url(url):
     try:
