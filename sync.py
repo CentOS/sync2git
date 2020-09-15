@@ -18,6 +18,9 @@ conf_data_downloadonly = False
 # Create temp. dirs. for alt-src.
 conf_alt_src_tmp = True
 
+# Cache looking up tags for builds.
+conf_cache_builds = True
+
 # This should never have CVEs and CVE checker hates it (timeout = fail).
 auto_passcvelist_module_packages = ["module-build-macros"]
 
@@ -164,6 +167,37 @@ def get_composed_modules(baseurl):
     m = compose.modules_from_compose(mdata)
     return compose.dedup_modules(m)
 
+_cached_upath = None
+def cached_nvr(nvr):
+    if not conf_cache_builds:
+        return None
+
+    try:
+        import mtimecache
+    except:
+        return None
+    global _cached_upath
+    if _cached_upath is None:
+        _cached_upath = mtimecache.userappcachedir("sync2git")
+        mtimecache.clean_dir(_cached_upath + "nvr")
+    ret = mtimecache.Cache(_cached_upath + "nvr/" + nvr)
+    return ret
+
+def cached_version_nvr(version, nvr):
+    if not conf_cache_builds:
+        return None
+
+    try:
+        import mtimecache
+    except:
+        return None
+    global _cached_upath
+    if _cached_upath is None:
+        _cached_upath = mtimecache.userappcachedir("sync2git")
+        mtimecache.clean_dir(_cached_upath + "version-nvr")
+    ret = mtimecache.Cache(_cached_upath + "version-nvr/" + version + '-' + nvr)
+    return ret
+
 def composed_builds2tagged_builds(composed):
     """
     Convert compose package JSON data into build/nvr data from koji
@@ -229,6 +263,10 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
     print("Using tmp dir:", corootdir)
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         if build['package_name'] in packages_to_track:
+            cb = cached_nvr(build['nvr'])
+            if cb is not None and cb.cached():
+                print("Cached-Tag: ", cb.read())
+                continue
             codir = corootdir + build['package_name']
 
             tags = build2git_tags(build, codir)
@@ -236,8 +274,10 @@ def check_unsynced_builds(tagged_builds, packages_to_track):
             new_build = True
             for tag in tags:
                 if str(tag) in tags_to_check:
-                    new_build = False
                     uitag = str(tag)[len("imports/"):]
+                    if cb is not None:
+                        cb.touch(uitag)
+                    new_build = False
                     print("Tag: ", uitag)
                     if __output_build_lines:
                         print("Build: ", build)
@@ -315,6 +355,11 @@ def check_extra_rpms(kapi, build, modcodir, extras):
         if find_shared_nvr(nvr, extras):
             continue
 
+        cb = cached_version_nvr(build['version'], nvr)
+        if cb is not None and cb.cached():
+            print("  Pkg mod Cached-Tag: ", cb.read())
+            continue
+
         tags = build2git_tags(ent, modcodir + "/" + ent['package_name'])
         # Eg. from the module: pki-deps-10.6-8030020200527165326-30b713e6
         # imports/c8s-stream-10.6/glassfish-jax-rs-api-2.0.1-6.module+el8.2.0+5723+4574fbff 
@@ -326,6 +371,8 @@ def check_extra_rpms(kapi, build, modcodir, extras):
             if nvr2shared_nvr(str(tag)) not in tags_to_check:
                 continue
             uitag = str(tag)[len("imports/"):]
+            if cb is not None:
+                cb.touch(uitag)
             if uitag.endswith(ent['nvr']): # Direct match.
                 print("  Pkg mod tag: ", uitag)
             else:
@@ -356,6 +403,11 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
         if build['package_name'] in modules_to_track:
             codir = corootdir + build['package_name']
 
+            cb = cached_version_nvr(build['version'], build['nvr'])
+            if cb is not None and cb.cached():
+                print("Cached-Tag: ", cb.read())
+                continue
+
             tags = build2git_tags(build, codir+"/_mod", T="modules")
 
             # imports/c8-stream-1.0/libvirt-4.5.0-35.3.module+el8.1.0+5931+8897e7e1 
@@ -370,6 +422,8 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
                 if str(tag) in tags_to_check:
                     new_build = False
                     uitag = str(tag)[len("imports/"):]
+                    if cb is not None:
+                        cb.touch(uitag)
                     print("Tag: ", uitag)
                     if __output_build_lines:
                         print("Build: ", build)
