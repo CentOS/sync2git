@@ -511,7 +511,7 @@ def check_cve_modules(kapi, tagged_builds):
         module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
         if len(module_spec_in_json['items']) < 1:
             print("** No items:", module_id)
-            allowed_builds.append(build)
+            # This means there's no moduleMD, not just no rpms.
             continue
 
         failed = False
