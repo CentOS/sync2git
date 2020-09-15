@@ -329,6 +329,11 @@ def main():
         hist_opt = True
         sys.argv[1:] = sys.argv[2:]
 
+    if sys.argv[1] == '-t': # Do history lookups...
+        global sleep_err
+        sleep_err = int(sys.argv[2])
+        sys.argv[1:] = sys.argv[3:]
+
     def noprnt(*args):
         pass
     def prnt(*args):
