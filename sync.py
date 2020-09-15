@@ -449,6 +449,8 @@ def check_cve_builds(tagged_builds):
     """
     if not conf_filter_cve:
         return tagged_builds
+    print("Checking CVEs for packages:", len(tagged_builds))
+    sys.stdout.flush()
     import access
 
     reqs = {}
@@ -503,6 +505,8 @@ def check_cve_modules(kapi, tagged_builds):
     """
     if not conf_filter_cve:
         return tagged_builds
+    print("Checking CVEs for modules:", len(tagged_builds))
+    sys.stdout.flush()
     allowed_builds = []
     for build in sorted(tagged_builds, key=lambda x: x['package_name']):
         module_id, tag, module_spec_in_json = modbuild2mbsjson(build)
