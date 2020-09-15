@@ -30,6 +30,7 @@ def parse_time(seconds):
     parts = seconds.split(':')
     if len(parts) > 1: # Parse time like 1:10:4:3
         if False in [x.isdigit() for x in parts]:
+            dbg("!digits", parts)
             return None
         parts = [int(x) for x in parts]
         ret = parts.pop()
@@ -51,12 +52,15 @@ def parse_time(seconds):
         if pos == -1:
             continue
         val = seconds[:pos]
+        seconds = seconds[pos+1:]
         if not val.isdigit():
+            dbg("!isdigit", val)
             return None
         ret += _tm_d[mark]*int(val)
     if seconds.isdigit():
         ret += int(seconds)
     elif seconds != '':
+        dbg("!empty", seconds)
         return None
 
     return ret
@@ -271,6 +275,9 @@ Commands:
     touch      <path>
     write      data <path>
 
+    secs       <time>
+    time       <secs>
+
     userappcachedir"""
 
     parser.add_option("-a", "--autocleanup",
@@ -298,6 +305,14 @@ Commands:
     if False: pass
     elif cmd == "help":
         parser.print_usage()
+    elif cmd == "time":
+        if len(args) < 2:
+            parser.error("No time specified")
+        print("time:", format_time(int(args[1])))
+    elif cmd == "secs":
+        if len(args) < 2:
+            parser.error("No time specified")
+        print("secs:", parse_time(args[1]))
     elif cmd == "userappcachedir":
         print("user:", userappcachedir("<app>"))
     elif cmd == "cached":
