@@ -168,7 +168,7 @@ def get_composed_modules(baseurl):
     return compose.dedup_modules(m)
 
 _cached_upath = None
-def cached_nvr(nvr):
+def _cached_setup():
     if not conf_cache_builds:
         return None
 
@@ -180,21 +180,20 @@ def cached_nvr(nvr):
     if _cached_upath is None:
         _cached_upath = mtimecache.userappcachedir("sync2git")
         mtimecache.clean_dir(_cached_upath + "nvr")
+        mtimecache.clean_dir(_cached_upath + "version-nvr")
+    return mtimecache
+
+def cached_nvr(nvr):
+    mtimecache = _cached_setup()
+    if mtimecache is None:
+        return None
     ret = mtimecache.Cache(_cached_upath + "nvr/" + nvr)
     return ret
 
 def cached_version_nvr(version, nvr):
-    if not conf_cache_builds:
+    mtimecache = _cached_setup()
+    if mtimecache is None:
         return None
-
-    try:
-        import mtimecache
-    except:
-        return None
-    global _cached_upath
-    if _cached_upath is None:
-        _cached_upath = mtimecache.userappcachedir("sync2git")
-        mtimecache.clean_dir(_cached_upath + "version-nvr")
     ret = mtimecache.Cache(_cached_upath + "version-nvr/" + version + '-' + nvr)
     return ret
 
