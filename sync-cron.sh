@@ -20,6 +20,10 @@ nocache=--nocache
 nocache=
 # ----------------
 
+# Find the dir. this script is in...
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd $DIR
+
 lockf=sync2git-lock-file.lock
 function unlockf {
     rm -f "$lockf"
@@ -37,9 +41,6 @@ echo "$$" > "$lockf"
 trap unlockf EXIT
 
 
-# Find the dir. this script is in...
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd $DIR
 
 if [ ! -d logs ]; then
     mkdir logs
