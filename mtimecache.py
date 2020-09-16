@@ -65,6 +65,30 @@ def parse_time(seconds):
 
     return ret
 
+def _add_dur(dur, ret, nummod, suffix):
+    mod = dur % nummod
+    dur = dur // nummod
+    if mod > 0:
+        ret.append(suffix)
+        ret.append(str(mod))
+    return dur
+
+def format_duration(seconds):
+    if seconds is None:
+        seconds = 0
+    dur = int(seconds)
+
+    ret = []
+    dur = _add_dur(dur, ret, 60, "s")
+    dur = _add_dur(dur, ret, 60, "m")
+    dur = _add_dur(dur, ret, 24, "h")
+    dur = _add_dur(dur, ret,  7, "d")
+    dur = _add_dur(dur, ret, 13, "w")
+    if dur > 0:
+        ret.append("q")
+        ret.append(str(dur))
+    return "".join(reversed(ret))
+
 def format_time(seconds, use_hours=True):
     if seconds is None:
         seconds = 0
@@ -275,6 +299,7 @@ Commands:
     touch      <path>
     write      data <path>
 
+    dur        <secs>
     secs       <time>
     time       <secs>
 
@@ -309,6 +334,10 @@ Commands:
         if len(args) < 2:
             parser.error("No time specified")
         print("time:", format_time(int(args[1])))
+    elif cmd == "dur":
+        if len(args) < 2:
+            parser.error("No time specified")
+        print("dur:", format_duration(int(args[1])))
     elif cmd == "secs":
         if len(args) < 2:
             parser.error("No time specified")
