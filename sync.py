@@ -725,6 +725,8 @@ def main():
                       help="Specify module compose to sync", default=None)
     parser.add_option("", "--download-only", dest="download_only",
                       help="Just download, always safe", default=False, action="store_true")
+    parser.add_option("", "--nocache", dest="nocache",
+                      help="Don't cache any results", default=False, action="store_true")
 
     (options, args) = parser.parse_args()
 
@@ -733,6 +735,10 @@ def main():
     modules_to_track = load_module_list()
     denylist = load_package_denylist()
     denylist = set(denylist)
+
+    if options.nocache:
+        global conf_cache_builds
+        conf_cache_builds = False
 
     if options.download_only:
         global conf_data_downloadonly

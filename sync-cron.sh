@@ -14,6 +14,10 @@ packages=--sync-packages
 # packages=
 modules=--sync-modules
 # modules=
+
+# Use this if you want to turn caching off...
+nocache=--nocache
+nocache=
 # ----------------
 
 # Find the dir. this script is in...
@@ -28,6 +32,7 @@ fname="logs/$(date --iso=minutes)"
 
 python3 ./sync.py \
   $downloadonly \
+  $nocache \
   --packages-compose=$nightly_compose \
   --modules-compose=$nightly_compose \
   $packages \
