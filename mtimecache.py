@@ -65,25 +65,28 @@ def parse_time(seconds):
 
     return ret
 
-def _add_dur(dur, ret, nummod, suffix):
+def _add_dur(dur, ret, nummod, suffix, static=False):
     mod = dur % nummod
     dur = dur // nummod
-    if mod > 0:
+    if mod > 0 or (static and dur > 0):
         ret.append(suffix)
-        ret.append(str(mod))
+        if static and dur > 0:
+            ret.append("%0*d" % (len(str(nummod)), mod))
+        else:
+            ret.append(str(mod))
     return dur
 
-def format_duration(seconds):
+def format_duration(seconds, static=False):
     if seconds is None:
         seconds = 0
     dur = int(seconds)
 
     ret = []
-    dur = _add_dur(dur, ret, 60, "s")
-    dur = _add_dur(dur, ret, 60, "m")
-    dur = _add_dur(dur, ret, 24, "h")
-    dur = _add_dur(dur, ret,  7, "d")
-    dur = _add_dur(dur, ret, 13, "w")
+    dur = _add_dur(dur, ret, 60, "s", static=static)
+    dur = _add_dur(dur, ret, 60, "m", static=static)
+    dur = _add_dur(dur, ret, 24, "h", static=static)
+    dur = _add_dur(dur, ret,  7, "d", static=static)
+    dur = _add_dur(dur, ret, 13, "w", static=static)
     if dur > 0:
         ret.append("q")
         ret.append(str(dur))
@@ -156,12 +159,12 @@ def fcached(fname, expire_min=None, expire_max=None):
         return False
 
     if mtime + expire_max < now: # Max amount of time allowed so no cache.
-        tm = format_time(now - (mtime + expire_max))
+        tm = format_duration(now - (mtime + expire_max))
         dbg("mtime + expire_max < now", "| for:", tm)
         return False
 
     if mtime + expire_min > now: # Not hit minimum, so always keep it.
-        tm = format_time((mtime + expire_min) - now)
+        tm = format_duration((mtime + expire_min) - now)
         dbg("mtime + expire_min > now", "| for:", tm)
         return True
 
@@ -179,8 +182,8 @@ def fcached(fname, expire_min=None, expire_max=None):
     pc = float(secs) / sec_range
     rand = random.random()
     if _conf_debug:
-        dbg("range:", format_time(sec_range))
-        dbg("  now:", format_time(secs))
+        dbg("range:", format_duration(sec_range))
+        dbg("  now:", format_duration(secs, static=True))
         dbg("percent chance:", pc)
         dbg("          rand:", rand)
         dbg("pc > rand:", pc > rand)
@@ -300,6 +303,7 @@ Commands:
     write      data <path>
 
     dur        <secs>
+    durs       <secs>
     secs       <time>
     time       <secs>
 
@@ -338,6 +342,10 @@ Commands:
         if len(args) < 2:
             parser.error("No time specified")
         print("dur:", format_duration(int(args[1])))
+    elif cmd == "durs":
+        if len(args) < 2:
+            parser.error("No time specified")
+        print("dur:", format_duration(int(args[1]), static=True))
     elif cmd == "secs":
         if len(args) < 2:
             parser.error("No time specified")
