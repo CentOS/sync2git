@@ -78,6 +78,7 @@ def seconds_to_ui_time(seconds):
 def log4id(checkid):
     url = burl + 'log/' + checkid
     data = _data_url(url)
+    data = str(data)
     # This is direct opposite of app.py so no &amp; and it's not guaranteed
     # to be the original, but should be close.
     return data.replace("<br>", "\n").replace("&lt;", "<").replace("&gt;", ">")
