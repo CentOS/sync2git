@@ -152,6 +152,11 @@ def get_composed_builds(baseurl):
     import compose
 
     c = compose.Compose(baseurl)
+    cid = c.data_id()
+    cstat = c.data_status()
+    print('Pkg Compose:', cid)
+    print(' Status:', cstat)
+
     pdata = c.json_rpms()
     p = compose.packages_from_compose(pdata)
     return p
@@ -163,6 +168,10 @@ def get_composed_modules(baseurl):
     import compose
 
     c = compose.Compose(baseurl)
+    cid = c.data_id()
+    cstat = c.data_status()
+    print('Mod Compose:', cid)
+    print(' Status:', cstat)
     mdata = c.json_modules()
     m = compose.modules_from_compose(mdata)
     return compose.dedup_modules(m)
@@ -707,7 +716,18 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track, summary=False):
     sync_directly(extra_pkgs)
     sync_directly(extra_pkg2)
 
+def _curtime():
+    from datetime import datetime
+
+    now = datetime.now()
+
+    current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+    return current_time
+
 def main():
+    if not sys.stdout.isatty():
+        print(" -- Beg:", _curtime())
+
     parser = OptionParser()
     parser.add_option("", "--koji-host", dest="koji_host",
                       help="Host to connect to", default="http://brewhub.engineering.redhat.com/brewhub/")
@@ -752,7 +772,7 @@ def main():
     if options.sync_modules or options.summary_modules:
         sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track, options.summary_modules)
     if not sys.stdout.isatty():
-        print(" -- Done --")
+        print(" -- End:", _curtime())
 
 # Badly written but working python script
 if __name__ == "__main__":
