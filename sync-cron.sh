@@ -14,6 +14,7 @@ packages=--sync-packages
 # packages=
 modules=--sync-modules
 # modules=
+# modules=--summary-modules
 
 # Use this if you want to turn caching off...
 nocache=--nocache

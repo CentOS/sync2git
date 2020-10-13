@@ -678,12 +678,13 @@ def sync_packages(tag, compose, brew_proxy, packages_to_track, denylist=[]):
     # sync_through_pub(unsynced_builds)
     sync_directly(unsynced_builds)
 
-def sync_modules(tag, compose, brew_proxy, modules_to_track):
+def sync_modules(tag, compose, brew_proxy, modules_to_track, summary=False):
     """
         tag: Specify a koji tag to pull modules from.
         compose: Specify a "koji" compose to pull modules from (None uses the tag).
         brew_proxy: brew object to query
         modules_to_track: list of modules we care about
+        summary: if true just print a summary and don't push
     """
     if compose is None:
         tagged_builds = get_tagged_modules(brew_proxy, tag)
@@ -694,14 +695,13 @@ def sync_modules(tag, compose, brew_proxy, modules_to_track):
             modules_to_track = set()
             for build in tagged_builds:
                 modules_to_track.add(build['package_name'])
-    if __test_print_tagged:
-        from pprint import pprint
-        pprint(tagged_builds)
-        return
     kapi = brew_proxy
     unsynced_builds, extra_pkgs = check_unsynced_modules(kapi, tagged_builds,
                                                          modules_to_track)
     unsynced_builds = check_cve_modules(brew_proxy, unsynced_builds)
+    if __test_print_tagged or summary:
+        global conf_data_downloadonly
+        conf_data_downloadonly = True
     extra_pkg2 = sync_modules_directly(kapi, unsynced_builds)
     # These are the extra rpms needed for already pushed modules...
     sync_directly(extra_pkgs)
@@ -715,6 +715,8 @@ def main():
                       help="Sync packages to streams", default=False, action="store_true")
     parser.add_option("", "--sync-modules", dest="sync_modules",
                       help="Sync modules to streams", default=False, action="store_true")
+    parser.add_option("", "--summary-modules", dest="summary_modules",
+                      help="Summary of sync modules to streams", default=False, action="store_true")
     parser.add_option("", "--packages-tag", dest="packages_tag",
                       help="Specify package tag to sync", default="rhel-8.2.0-candidate")
     parser.add_option("", "--modules-tag", dest="modules_tag",
@@ -747,8 +749,8 @@ def main():
         print(" ** Warning: This will run alt-src to push packages/modules.")
     if options.sync_packages:
         sync_packages(options.packages_tag, options.packages_compose, brew_proxy, packages_to_track, denylist)
-    if options.sync_modules:
-        sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track)
+    if options.sync_modules or options.summary_modules:
+        sync_modules(options.modules_tag, options.modules_compose, brew_proxy, modules_to_track, options.summary_modules)
     if not sys.stdout.isatty():
         print(" -- Done --")
 
