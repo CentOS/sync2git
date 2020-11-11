@@ -48,7 +48,7 @@ fi
 
 fname="logs/$(date --iso=minutes)"
 
-python3 ./sync.py \
+python3 ./sync2git.py \
   $downloadonly \
   $nocache \
   --packages-compose=$nightly_compose \

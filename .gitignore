@@ -1,0 +1,6 @@
+*~
+*.orig
+*.pyc
+*.rej
+__pycache__
+logs

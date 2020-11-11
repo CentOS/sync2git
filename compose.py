@@ -7,84 +7,7 @@ import sys
 import json
 import time
 import urllib
-
-
-class Package(object):
-    __slots__ = ['name', 'fullname',
-                 'version', 'release', 'epoch']
-
-    def __eq__(self, other):
-        return self.fullname == other.fullname
-
-    # Note that this isn't rpmvercmp accurate ... meh.
-    def __gt__(self, o):
-        if self.name > o.name:
-            return True
-        if self.name != o.name:
-            return False
-
-        if self.version > o.version:
-            return True
-        if self.version != o.version:
-            return False
-
-        if self.release > o.release:
-            return True
-
-        return False
-
-    # Note that this isn't rpmvercmp accurate ... meh.
-    def __lt__(self, o):
-        if self.name < o.name:
-            return True
-        if self.name != o.name:
-            return False
-
-        if self.version < o.version:
-            return True
-        if self.version != o.version:
-            return False
-
-        if self.release < o.release:
-            return True
-
-        return False
-
-    # Note that this isn't rpmvercmp accurate ... meh.
-    def __ge__(self, o):
-        return not self.__lt__(o)
-    # Note that this isn't rpmvercmp accurate ... meh.
-    def __le__(self, o):
-        return not self.__gt__(o)
-
-    def koji_epochnum(self):
-        if self.epoch == '0': # Bad compat, sigh
-            return None
-        return int(self.epoch)
-
-    def ui_nevra(self):
-        if self.epoch == '0':
-            return self.nvra()
-        else:
-            return self.nevra()
-    def ui_nevr(self):
-        if self.epoch == '0':
-            return self.nvr()
-        else:
-            return self.nevr()
-
-    def nvr(self):
-        return '%s-%s-%s' % (self.name, self.version, self.release)
-    def nvra(self):
-        return '%s-%s-%s.%s' % (self.name, self.version,self.release, self.arch)
-    def nevr(self):
-        return '%s-%s:%s-%s' % (self.name, self.epoch,self.version,self.release)
-    def nevra(self):
-        return '%s-%s:%s-%s.%s' % (self.name,
-                                   self.epoch, self.version, self.release,
-                                   self.arch)
-
-
+import spkg
 
 class Module(object):
     __slots__ = ['name', 'fullname',
@@ -146,40 +69,6 @@ class Module(object):
         return '%s.%s' % (self.version, self.context)
 
 
-if False: # Requires dnf/hawkey for simple string manip.
- def nevra_from_string(rpmstr):
-    s = dnf.subject.Subject(rpmstr)
-    nevra = next(iter(s.get_nevra_possibilities(forms=[hawkey.FORM_NEVRA])), None)
-    return nevra
-else:
- class Nevra(object):
-    __slots__ = ['name', 'arch',
-                 'version', 'release', 'epoch']
-
-    def __eq__(self, other):
-        for k in ('name', 'epoch', 'version', 'release', 'arch'):
-            if getattr(self, k) != getattr(other, k):
-                return False
-        return True
-
- def nevra_from_string(nevrastr):
-    """Take a full nevra string and return a Nevra(). """
-    n, ev, ra = nevrastr.rsplit('-', 2)
-    if ':' in ev:
-        e, v = ev.split(':', 1)
-    else:
-        e, v = '0', ev
-    r, a = ra.rsplit('.', 1)
-
-    nevra = Nevra()
-    nevra.name = n
-    nevra.epoch = e
-    nevra.version = v
-    nevra.release = r
-    nevra.arch = r
-    return nevra
-
-
 def packages_from_compose(rjson):
     srpms = []
 
@@ -191,14 +80,7 @@ def packages_from_compose(rjson):
     for srpm in set(srpms):
         if 'module+' in srpm:
             continue
-        nevra = nevra_from_string(srpm)
-        p = Package()
-        p.name = nevra.name
-        p.fullname = srpm
-        p.version = nevra.version
-        p.release = nevra.release
-        p.epoch = nevra.epoch
-
+        p = spkg.nevra2pkg(srpm)
         packages.append(p)
 
     return packages
