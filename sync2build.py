@@ -507,20 +507,21 @@ def build_packages(kapi, bpkgs, giturl='git+https://git.centos.org/rpms/',
     """
     Build the newer rpms to centos stream tags
     """
-    for bpkg in sorted(bpkgs):
-        cmd += " " + bpkg.nvr + ".src.rpm"
-        print(cmd)
-        sys.stdout.flush()
-
-    if conf_data_downloadonly:
-        return
 
     for bpkg in sorted(bpkgs):
         url = giturl + bpkg.name
         url += '?#imports/c8s/' + bpkg.nvr
         print("URL:", url)
         print("TAG:", tag)
-        # kapi.session.build(url, tag)
+        sys.stdout.flush()
+
+        if conf_data_downloadonly or True:
+            continue
+
+        task_id = kapi.session.build(url, tag)
+        weburl = "https://koji.mbox.centos.org/koji"
+        print("%s/taskinfo?taskID=%d" % (weburl, task_id))
+        sys.stdout.flush()
 
 def sync_modules_directly(kapi, unsynced_builds):
     """
