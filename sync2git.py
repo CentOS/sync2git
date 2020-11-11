@@ -153,6 +153,11 @@ def composed_url2pkgs(baseurl):
     import compose
 
     c = compose.Compose(baseurl)
+    cid = c.data_id()
+    cstat = c.data_status()
+    print('Pkg Compose:', cid)
+    print(' Status:', cstat)
+
     pdata = c.json_rpms()
     p = compose.packages_from_compose(pdata)
     return p
@@ -164,6 +169,10 @@ def get_composed_modules(baseurl):
     import compose
 
     c = compose.Compose(baseurl)
+    cid = c.data_id()
+    cstat = c.data_status()
+    print('Mod Compose:', cid)
+    print(' Status:', cstat)
     mdata = c.json_modules()
     m = compose.modules_from_compose(mdata)
     return compose.dedup_modules(m)
@@ -670,12 +679,13 @@ def sync_packages(tag, compose, kapi, packages_to_track, denylist=[]):
     bpkgs = check_cve_builds(bpkgs)
     sync_directly(bpkgs)
 
-def sync_modules(tag, compose, kapi, modules_to_track):
+def sync_modules(tag, compose, kapi, modules_to_track, summary=False):
     """
         tag: Specify a koji tag to pull modules from.
         compose: Specify a "koji" compose to pull modules from (None uses the tag).
         kapi: brew object to query
         modules_to_track: list of modules we care about
+        summary: if true just print a summary and don't push
     """
     if compose is None:
         tagged_builds = get_tagged_modules(kapi, tag)
@@ -686,7 +696,7 @@ def sync_modules(tag, compose, kapi, modules_to_track):
             modules_to_track = set()
             for build in tagged_builds:
                 modules_to_track.add(build['package_name'])
-    if __test_print_tagged:
+    if __test_print_tagged or summary:
         from pprint import pprint
         pprint(tagged_builds)
         return
@@ -698,7 +708,18 @@ def sync_modules(tag, compose, kapi, modules_to_track):
     sync_directly(extra_pkgs)
     sync_directly(extra_pkg2)
 
+def _curtime():
+    from datetime import datetime
+
+    now = datetime.now()
+
+    current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+    return current_time
+
 def main():
+    if not sys.stdout.isatty():
+        print(" -- Beg:", _curtime())
+
     parser = OptionParser()
     parser.add_option("", "--koji-host", dest="koji_host",
                       help="Host to connect to", default="http://brewhub.engineering.redhat.com/brewhub/")
@@ -706,6 +727,8 @@ def main():
                       help="Sync packages to streams", default=False, action="store_true")
     parser.add_option("", "--sync-modules", dest="sync_modules",
                       help="Sync modules to streams", default=False, action="store_true")
+    parser.add_option("", "--summary-modules", dest="summary_modules",
+                      help="Summary of sync modules to streams", default=False, action="store_true")
     parser.add_option("", "--packages-tag", dest="packages_tag",
                       help="Specify package tag to sync", default="rhel-8.2.0-candidate")
     parser.add_option("", "--modules-tag", dest="modules_tag",
@@ -743,9 +766,9 @@ def main():
     if options.sync_modules:
         tag  = options.modules_tag
         comp = options.modules_compose
-        sync_modules(tag, comp, kapi, modules_to_track)
+        sync_modules(tag, comp, kapi, modules_to_track, options.summary_modules)
     if not sys.stdout.isatty():
-        print(" -- Done --")
+        print(" -- End:", _curtime())
 
 # Badly written but working python script
 if __name__ == "__main__":

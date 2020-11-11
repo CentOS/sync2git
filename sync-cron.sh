@@ -7,13 +7,14 @@ downloadonly=
 
 #  Where do we want to look for the nightly compose. Used for both packages
 # and modules, probably a bad idea to have different ones for each.
-nightly_compose=http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.3/
+nightly_compose=http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.4/
 
 # If we want to turn off just packages/modules, change these...
 packages=--sync-packages
 # packages=
 modules=--sync-modules
 # modules=
+# modules=--summary-modules
 
 # Use this if you want to turn caching off...
 nocache=--nocache
