@@ -19,21 +19,21 @@ Usage:
 
 Other commands:
  * ./sync2git.py - Take packages from koji tag/compose and sync them to git.
- * ./sync2build.py - Take packages from koji tag/compose and sync them to git.
+ * ./sync2build.py - Take packages from git and sync them to koji builds.
  * * ./sync2build.py packages
  * * ./sync2build.py modules
  * * ./sync2build.py check-nvr - Check a given NVR against git.
  * * ./sync2build.py build-nvr - Build a given NVR from git.
  * ./compose.py - Get data from a compose.
- * * ./compose.py <compose-base-url>
+ * * ./compose.py &lt;compose-base-url>
  * ./access.py - Query CVE checker data
  * * ./access.py -h = Do history lookups, for speed
- * * ./access.py -t <duration> = set the query timeout
- * * ./access.py logs <query-id> = Show the log data for the query id
+ * * ./access.py -t &lt;duration> = set the query timeout
+ * * ./access.py logs &lt;query-id> = Show the log data for the query id
  * * ./access.py history name[-version[-release]] = Show the history of the n/nvr
  * * ./access.py nvrs nvr... = Query the given NVRs
  * * ./access.py names name... = Query the given NVRs for local pkgs. named
  * * ./access.py names name... = Query the given NVRs for local pkgs. named
  * * ./access.py file-nvrs nvr... = Query all the nvrs in the files
  * ./rpmvercmp.py = rpm version comparison in python
- * * ./rpmvercmp.py <s1> <s2> = compare s1 vs. s2 using rpmvercmp logic
+ * * ./rpmvercmp.py &lt;s1> &lt;s2> = compare s1 vs. s2 using rpmvercmp logic
