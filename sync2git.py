@@ -105,13 +105,13 @@ def koji_nvra2srpm(session, nvra):
     return koji_nvr2srpm(session, info['build_id'])
 
 def load_package_list():
-    return _read_lines("packages.txt")
+    return _read_lines("conf/sync2git-packages.txt")
 
 def load_module_list():
-    return _read_lines("modules.txt")
+    return _read_lines("conf/sync2git-modules.txt")
 
 def load_package_denylist():
-    return _read_lines("packages-denylist.txt")
+    return _read_lines("conf/sync2git-packages-denylist.txt")
 
 def koji_tag2pkgs(kapi, tag):
     """

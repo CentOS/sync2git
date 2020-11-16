@@ -1,0 +1,21 @@
+# Packages that we don't auto build, Eg. branding problems.
+abrt
+anaconda
+basesystem
+chrony
+dhcp
+dnf
+firefox
+gflags
+glusterfs
+gnome-settings-daemon
+gnu-efi
+groff
+initial-setup
+libreport
+PackageKit
+plymouth
+redhat-rpm-config
+subscription-manager
+thunderbird
+wget
