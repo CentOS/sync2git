@@ -27,3 +27,12 @@ kernel
 kernel-rt
 kexec-tools
 kmod*
+# Secureboot stuff...
+fwupd
+fwupdate
+grub2
+kernel
+kernel-rt
+shim
+shim-unsigned-aarch64
+shim-unsigned-x64
