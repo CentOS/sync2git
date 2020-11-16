@@ -152,6 +152,9 @@ class Pkg(object):
         return '%s.%s' % (self.name, self.arch)
 
     @property
+    def nv(self):
+        return '%s-%s' % (self.name, self.version)
+    @property
     def nvr(self):
         return '%s-%s' % (self.name, self.vr)
     @property

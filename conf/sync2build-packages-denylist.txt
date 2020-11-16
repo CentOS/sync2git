@@ -19,3 +19,11 @@ redhat-rpm-config
 subscription-manager
 thunderbird
 wget
+# Currently ignore the weird gcc-toolset/scl packages...
+gcc-toolset-9*
+gcc-toolset-10*
+# 2020-07-28 kernel additions...
+kernel
+kernel-rt
+kexec-tools
+kmod*

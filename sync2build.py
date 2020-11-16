@@ -43,6 +43,9 @@ __output_build_lines = False
 # Do we want to include all packages from a compose...
 __auto_compose_allowlist = True
 
+# Do we want to include all packages from a tag...
+__auto_tag_allowlist = True
+
 # Do we want to just test...
 __test_print_tagged = False
 
@@ -125,13 +128,13 @@ def koji_nvra2srpm(session, nvra):
     return koji_nvr2srpm(session, info['build_id'])
 
 def load_package_list():
-    return _read_lines("packages.txt")
+    return _read_lines("conf/sync2build-packages.txt")
 
 def load_module_list():
-    return _read_lines("modules.txt")
+    return _read_lines("conf/sync2build-modules.txt")
 
 def load_package_denylist():
-    return _read_lines("packages-denylist.txt")
+    return _read_lines("conf/sync2build-packages-denylist.txt")
 
 def koji_tag2pkgs(kapi, tag):
     """
@@ -232,16 +235,33 @@ def composed_modules2tagged_builds(composed):
         ret.append(ent)
     return ret
 
+def _deny_prefix(bpkg, prefixes):
+    for prefix in prefixes:
+        if bpkg.name.startswith(prefix):
+            return True
+    return False
+
 def check_denylist_builds(bpkgs, denylist):
     """
     Look for any builds on the denylist, and remove them.
     """
+    prefixes = []
+    for dname in denylist:
+        if dname[-1] != '*':
+            continue
+        prefixes.append(dname[:-1])
+
     ret = []
     for bpkg in sorted(bpkgs):
         if bpkg.name in denylist:
             print("Denied Pkg: ", bpkg)
             sys.stdout.flush()
             continue
+        if _deny_prefix(bpkg, prefixes):
+            print("Denied Pkg (prefix): ", bpkg)
+            sys.stdout.flush()
+            continue
+
         ret.append(bpkg)
     return ret
 
@@ -280,6 +300,10 @@ def _tags2pkgs(tags):
         if not stag.startswith("imports/c8"):
             continue
         stag = stag[len("imports/c8"):]
+        # Eg. See: https://git.centos.org/rpms/ongres-scram/releases
+        stag = stag.replace('%7e', '~')
+        if '%' in stag: # FIXME? panic?
+            continue
         if stag.startswith("s/"):
             stream = True
             stag = stag[len("s/"):]
@@ -502,8 +526,7 @@ def json_nvr2koji_srpm(kapi, rpmnvr):
         print("No such koji rpm: %s" % rpmnvr)
     return ent
 
-def build_packages(kapi, bpkgs, giturl='git+https://git.centos.org/rpms/',
-                   tag='dist-c8-stream'):
+def build_packages(kapi, bpkgs, tag, giturl='git+https://git.centos.org/rpms/'):
     """
     Build the newer rpms to centos stream tags
     """
@@ -511,16 +534,16 @@ def build_packages(kapi, bpkgs, giturl='git+https://git.centos.org/rpms/',
     for bpkg in sorted(bpkgs):
         url = giturl + bpkg.name
         url += '?#imports/c8s/' + bpkg.nvr
-        print("URL:", url)
-        print("TAG:", tag)
+        # print("URL:", url)
+        print("Building:", bpkg)
         sys.stdout.flush()
 
-        if conf_data_downloadonly or True:
+        if conf_data_downloadonly:
             continue
 
-        task_id = kapi.session.build(url, tag)
+        task_id = kapi.build(url, tag)
         weburl = "https://koji.mbox.centos.org/koji"
-        print("%s/taskinfo?taskID=%d" % (weburl, task_id))
+        print("Task: %s/taskinfo?taskID=%d" % (weburl, task_id))
         sys.stdout.flush()
 
 def sync_modules_directly(kapi, unsynced_builds):
@@ -547,6 +570,10 @@ def sync_packages(tag, compose, kapi, packages_to_track, denylist=[]):
     """
     if compose is None:
         bpkgs = koji_tag2pkgs(kapi, tag)
+        if __auto_tag_allowlist:
+            packages_to_track = set()
+            for bpkg in bpkgs:
+                packages_to_track.add(bpkg.name)
     else:
         bpkgs = composed_url2pkgs(compose)
         if __auto_compose_allowlist:
@@ -559,7 +586,7 @@ def sync_packages(tag, compose, kapi, packages_to_track, denylist=[]):
         return
     bpkgs = check_denylist_builds(bpkgs, denylist)
     bpkgs = check_unsynced_builds(bpkgs, packages_to_track)
-    build_packages(kapi, bpkgs)
+    build_packages(kapi, bpkgs, tag)
 
 def sync_modules(tag, compose, kapi, modules_to_track):
     """
@@ -590,14 +617,35 @@ def sync_modules(tag, compose, kapi, modules_to_track):
     sync_directly(extra_pkgs)
     sync_directly(extra_pkg2)
 
+def _match_pkgs(args, bpkgs):
+    import fnmatch
+    ret = []
+    for bpkg in sorted(bpkgs):
+        full = (bpkg.name, bpkg.nv, bpkg.nvr, bpkg.nvra)
+        found = len(args) == 0
+        for arg in sorted(args):
+            if arg in full:
+                found = True
+                break
+            for m in full:
+                if fnmatch.fnmatch(m, arg):
+                    found = True
+                    break
+            if found:
+                break
+        if not found:
+            continue
+        ret.append(bpkg)
+    return ret
+
 def main():
     parser = OptionParser()
     parser.add_option("", "--koji-host", dest="koji_host",
                       help="Host to connect to", default="https://koji.mbox.centos.org/kojihub")
     parser.add_option("", "--packages-tag", dest="packages_tag",
-                      help="Specify package tag to sync", default="dist-c8-stream-compose")
+                      help="Specify package tag to sync", default="dist-c8-stream")
     parser.add_option("", "--modules-tag", dest="modules_tag",
-                      help="Specify module tag to sync", default="dist-c8-stream-module-compose")
+                      help="Specify module tag to sync", default="dist-c8-stream-module")
     parser.add_option("", "--packages-compose", dest="packages_compose",
                       help="Specify package compose to sync", default=None)
     parser.add_option("", "--modules-compose", dest="modules_compose",
@@ -610,6 +658,8 @@ def main():
     (options, args) = parser.parse_args()
 
     kapi = koji.ClientSession(options.koji_host)
+    kapi.ssl_login("/compose/.koji/mbox_admin.pem", None, "/compose/.koji/ca.crt")
+
     packages_to_track = load_package_list()
     modules_to_track = load_module_list()
     denylist = load_package_denylist()
@@ -626,13 +676,47 @@ def main():
         print(" ** Warning: This will build pkgs/mods in koji.")
 
     if not args: pass
+    elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
+        args = args[1:]
+
+        tag  = options.packages_tag
+        comp = options.packages_compose
+
+        def _out_pkg(prefix, bpkgs):
+            prefix = "%8s" % prefix
+            for bpkg in sorted(bpkgs):
+                suffix = ''
+                if hasattr(bpkg, 'stream') and bpkg.stream:
+                    suffix = '(stream)'
+                print(prefix, bpkg, suffix)
+        bpkgs = koji_tag2pkgs(kapi, tag)
+        _out_pkg("Tag:", _match_pkgs(args, bpkgs))
+        if comp is not None:
+            cpkgs = composed_url2pkgs(comp)
+            _out_pkg("Compose:", _match_pkgs(args, cpkgs))
+    elif args[0] in ('summary-packages', 'summary-pkgs', 'sum-pkgs'):
+        args = args[1:]
+
+        tag  = options.packages_tag
+        comp = options.packages_compose
+
+        bpkgs = koji_tag2pkgs(kapi, tag)
+        print("  Tagged packages:", len(bpkgs))
+        if args:
+            print("  Matched:", len(_match_pkgs(args, bpkgs)))
+        if comp is not None:
+            cpkgs = composed_url2pkgs(comp)
+            print("Composed packages:", len(cpkgs))
+            if args:
+                print("  Matched:", len(_match_pkgs(args, cpkgs)))
     elif args[0] == 'check-nvr':
+
         tag  = options.packages_tag
         comp = options.packages_compose
 
         bpkg = spkg.nvr2pkg(args[1])
         print("Pkg:", bpkg)
-        bpkgs = koji_tag2pkgs(kapi, tag)
+
         def _out_pkg(prefix, pkg, bpkgs):
             prefix = "%8s" % prefix
             for bpkg in sorted(bpkgs):
@@ -650,6 +734,7 @@ def main():
                     print(prefix, "Older:", bpkg, suffix)
                 else:
                     print(prefix, "!!:", bpkg, suffix)
+        bpkgs = koji_tag2pkgs(kapi, tag)
         _out_pkg("Tag:", bpkg, bpkgs)
         if comp is not None:
             cpkgs = composed_url2pkgs(comp)
@@ -659,13 +744,39 @@ def main():
         corootdir = tcoroot.name + '/'
         codir = corootdir + bpkg.name
         tags = bpkg2git_tags(bpkg, codir)
-        if os.path.exists(codir + '/README.debrand'):
+        if os.path.exists(codir + '/README.debrand'): # Doesn't work
             print(" ** Debranding **")
         tpkgs = _tags2pkgs(tags)
         _out_pkg("GIT:", bpkg, tpkgs)
     elif args[0] == 'build-nvr':
         pkg = spkg.nvr2pkg(args[1])
-        build_packages(kapi, [pkg])
+        print("Pkg:", pkg)
+        if not check_denylist_builds([pkg], denylist):
+            print("Pkg in denylist:", pkg)
+            sys.exit(1) # Allow force?
+        tcoroot = tempfile.TemporaryDirectory(prefix="sync2build-chk-", dir="/tmp")
+        corootdir = tcoroot.name + '/'
+        codir = corootdir + pkg.name
+        tags = bpkg2git_tags(pkg, codir)
+        tpkgs = _tags2pkgs(tags)
+        found = False
+        for tpkg in sorted(tpkgs):
+            if tpkg.name != pkg.name:
+                continue
+            suffix = ''
+            if hasattr(tpkg, 'stream') and tpkg.stream:
+                suffix = '(stream)'
+            if tpkg.verGT(pkg):
+                print("Newer version in GIT, building that!", pkg, tpkg, suffix)
+                pkg = tpkg
+                found = True # Allow building older packages??
+            elif tpkg.verEQ(pkg):
+                found = True
+                print("Found version in GIT:", tpkg, suffix)
+        if not found:
+            print("Didn't find (so can't build):", tpkg, suffix)
+        else:
+            build_packages(kapi, [pkg], options.packages_tag)
         sys.exit(0)
 
     if 'packages' in args:
