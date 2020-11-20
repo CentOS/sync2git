@@ -460,6 +460,7 @@ def sync_packages(tag, compose, kapi):
     return taskids
 
 def wait_packages(tids, waittm):
+    import time
     try:
         import mtimecache
     except:
@@ -536,17 +537,20 @@ def main():
 
         tag  = options.packages_tag
 
+        def _slen(x):
+            return len(str(len(x)))
         def _out_pkg(prefix, bpkgs):
-            prefix = ""
+            bids = set()
             for bpkg in sorted(bpkgs):
-                suffix = ''
-                if hasattr(bpkg, 'stream') and bpkg.stream:
-                    suffix += '(stream)'
-                if hasattr(bpkg, '_koji_build_id'):
-                    suffix += '(bid:%d)' % bpkg._koji_build_id
                 if hasattr(bpkg, 'signed'):
                     if bpkg.signed:
                         continue
+                suffix = ''
+                bids.add(bpkg._koji_build_id)
+                prefix = "%*d | %*d |"
+                prefix %= (lenmax, len(bids), 8, bpkg._koji_build_id)
+                if hasattr(bpkg, 'stream') and bpkg.stream:
+                    suffix += '(stream)'
                 if spkg._is_branch_el8(bpkg):
                     suffix += '(branch)'
                 if spkg._is_module(bpkg):
@@ -555,6 +559,8 @@ def main():
                     suffix += '(rebuild)'
                 print(prefix, bpkg, suffix)
         bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        lenmax = _slen(bpkgs) # Max size of printed num
+        print("%*s | %*s | pkg" % (lenmax, "bids", 8, "build_id"))
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
         args = args[1:]
