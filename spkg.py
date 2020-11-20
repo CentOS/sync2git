@@ -261,3 +261,24 @@ def returnNewestByNameArch(pkgs, single=True): # YUM API, kinda
             returnlist.append(po)
 
     return returnlist
+
+
+def _is_branch_el8(pkg):
+    """ Is this a branch el8 pacakge. Eg. foo-1-2.el8_3.noarch """
+    return 'el8_' in pkg.release
+
+def _is_module(pkg):
+    """ Is this a module pacakge. Eg. foo-1-2.module+el8.1.0+2940+f62455ee.noarch """
+    return '.module+' in pkg.release
+
+def _is_rebuild(pkg):
+    """ Is this a rebuild pacakge. Eg. foo-1-2.el8+4.noarch """
+    rel = pkg.release
+    nums = "0123456789"
+    if rel[-1] not in nums:
+        return False
+    while rel and rel[-1] in nums:
+        rel = rel[:-1]
+    if rel and rel[-1] == '+':
+        return True
+    return False
