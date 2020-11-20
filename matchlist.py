@@ -2,7 +2,7 @@
 
 import fnmatch
 
-def _read_lines(fname):
+def read_lines(fname):
     """ Read the lines from a file, removeing extra whitespace and comments. """
     ret = []
     for line in open(fname):
@@ -32,7 +32,7 @@ class Matchlist(object):
         self.all = False
 
     def load(self, fname):
-        for line in _read_lines(fname):
+        for line in read_lines(fname):
 
             d = self._n
             g = self._n_globs
