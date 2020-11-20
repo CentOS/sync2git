@@ -551,6 +551,32 @@ def main():
         conf_data_downloadonly = True
 
     if not args: pass
+    elif args[0] in ('list-unsigned-pkgs', 'list-unsigned-packages',
+                     'ls-unsigned-pkgs', 'ls-unsigned-packages'):
+        args = args[1:]
+
+        tag  = options.packages_tag
+
+        def _out_pkg(prefix, bpkgs):
+            prefix = ""
+            for bpkg in sorted(bpkgs):
+                suffix = ''
+                if hasattr(bpkg, 'stream') and bpkg.stream:
+                    suffix += '(stream)'
+                if hasattr(bpkg, '_koji_build_id'):
+                    suffix += '(bid:%d)' % bpkg._koji_build_id
+                if hasattr(bpkg, 'signed'):
+                    if bpkg.signed:
+                        continue
+                if spkg._is_branch_el8(bpkg):
+                    suffix += '(branch)'
+                if spkg._is_module(bpkg):
+                    suffix += '(module)'
+                if spkg._is_rebuild(bpkg):
+                    suffix += '(rebuild)'
+                print(prefix, bpkg, suffix)
+        bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        _out_pkg("Tag:", _match_pkgs(args, bpkgs))
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
         args = args[1:]
 
