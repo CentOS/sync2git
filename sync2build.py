@@ -459,27 +459,6 @@ def sync_packages(tag, compose, kapi):
     taskids = build_packages(kapi, bpkgs, tag)
     return taskids
 
-def _match_pkgs(args, bpkgs):
-    import fnmatch
-    ret = []
-    for bpkg in sorted(bpkgs):
-        full = (bpkg.name, bpkg.nv, bpkg.nvr, bpkg.nvra)
-        found = len(args) == 0
-        for arg in sorted(args):
-            if arg in full:
-                found = True
-                break
-            for m in full:
-                if fnmatch.fnmatch(m, arg):
-                    found = True
-                    break
-            if found:
-                break
-        if not found:
-            continue
-        ret.append(bpkg)
-    return ret
-
 def wait_packages(tids, waittm):
     try:
         import mtimecache
@@ -576,7 +555,7 @@ def main():
                     suffix += '(rebuild)'
                 print(prefix, bpkg, suffix)
         bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
-        _out_pkg("Tag:", _match_pkgs(args, bpkgs))
+        _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
         args = args[1:]
 
@@ -604,10 +583,10 @@ def main():
                     suffix += '(rebuild)'
                 print(prefix, bpkg, suffix)
         bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
-        _out_pkg("Tag:", _match_pkgs(args, bpkgs))
+        _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
         if comp is not None:
             cpkgs = composed_url2pkgs(comp)
-            _out_pkg("Compose:", _match_pkgs(args, cpkgs))
+            _out_pkg("Compose:", spkg.match_pkgs(args, cpkgs))
     elif args[0] in ('summary-packages', 'summary-pkgs', 'sum-pkgs'):
         args = args[1:]
 
@@ -617,12 +596,12 @@ def main():
         bpkgs = koji_tag2pkgs(kapi, tag)
         print("  Tagged packages:", len(bpkgs))
         if args:
-            print("  Matched:", len(_match_pkgs(args, bpkgs)))
+            print("  Matched:", len(spkg.match_pkgs(args, bpkgs)))
         if comp is not None:
             cpkgs = composed_url2pkgs(comp)
             print("Composed packages:", len(cpkgs))
             if args:
-                print("  Matched:", len(_match_pkgs(args, cpkgs)))
+                print("  Matched:", len(spkg.match_pkgs(args, cpkgs)))
     elif args[0] in ('check-nvr', 'check-nvra'):
 
         tag  = options.packages_tag

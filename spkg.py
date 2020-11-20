@@ -1,5 +1,7 @@
 """ Simple RPM package class. """
 
+import fnmatch
+
 from rpmvercmp import rpmvercmp
 
 class Pkg(object):
@@ -261,6 +263,29 @@ def returnNewestByNameArch(pkgs, single=True): # YUM API, kinda
             returnlist.append(po)
 
     return returnlist
+
+# Similar to matchPackageNames() in yum, but smaller/simpler.
+def match_pkgs(args, bpkgs):
+    ret = []
+    for bpkg in sorted(bpkgs):
+        full = (bpkg.name, bpkg.nv, bpkg.nvr, bpkg.nvra)
+        found = len(args) == 0
+        for arg in sorted(args):
+            if found:
+                break
+            if arg in full:
+                found = True
+        for arg in sorted(args):
+            if found:
+                break
+            for m in full:
+                if fnmatch.fnmatch(m, arg):
+                    found = True
+                    break
+        if not found:
+            continue
+        ret.append(bpkg)
+    return ret
 
 
 def _is_branch_el8(pkg):
