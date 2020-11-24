@@ -23,7 +23,7 @@ class Pkg(object):
     def __str__(self):
         return self.ui_nevra
 
-    def __eq__(self, other):
+    def __eq__(self, o):
         if self.name != o.name:
             return False
         if self.verCMP(o) != 0:
