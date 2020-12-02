@@ -428,7 +428,6 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
 
     tcoroot = tempfile.TemporaryDirectory(prefix="sync2html-", dir="/tmp")
     corootdir = tcoroot.name + '/'
-    codir = corootdir + bpkg.name
 
     fo.write(html_table)
     stats = {'sign' : 0, 'done' : 0, 'push' : 0, 'build' : 0, 'denied' : 0,
@@ -478,6 +477,7 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
                 stats['error'] += 1
 
         # cpkg > bpkg, or no bpkg
+        codir = corootdir + bpkg.name
         tpkgs = _tags2pkgs(bpkg2git_tags(bpkg, codir))
         found = False
         for tpkg in reversed(sorted(tpkgs)):
