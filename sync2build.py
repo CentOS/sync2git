@@ -663,6 +663,20 @@ def main():
         lenmax = _slen(bpkgs) # Max size of printed num
         print("%*s | %*s | pkg" % (lenmax, "bids", 8, "build_id"))
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
+    elif args[0] in ('nvra-unsigned-pkgs', 'nvra-unsigned-packages'):
+        args = args[1:]
+
+        tag  = options.packages_tag
+
+        def _out_pkg(prefix, bpkgs):
+            bids = set()
+            for bpkg in sorted(bpkgs):
+                if hasattr(bpkg, 'signed'):
+                    if bpkg.signed:
+                        continue
+                print(bpkg)
+        bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
         args = args[1:]
 
