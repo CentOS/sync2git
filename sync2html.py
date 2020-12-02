@@ -490,7 +490,10 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
                 stats['git-old'] += 1
                 continue # See if the next oldest is ==
             if cpkg == tpkg:
-                html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
+                if cpkg == bpkg:
+                    html_row(fo, cpkg, "BUILD needed, no build", lc="need_build")
+                else:
+                    html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
                 stats['build'] += 1
                 break
             if cpkg > tpkg:
