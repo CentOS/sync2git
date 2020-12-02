@@ -369,12 +369,34 @@ def json_nvr2koji_srpm(kapi, rpmnvr):
         print("No such koji rpm: %s" % rpmnvr)
     return ent
 
+def _tid2url(tid):
+    weburl = "https://koji.mbox.centos.org/koji"
+    return "%s/taskinfo?taskID=%d" % (weburl, tid)
+
+def _filter_old_builds(kapi, bpkgs):
+    tids = bpids_load()
+    if False and tids: # If we do this we can race between git check and build.
+        tids = bpids_wait_packages(kapi, tids, 0)
+
+    running_builds = {}
+    for tid,pkg in tids:
+        running_builds[pkg.name] = tid
+
+    nbpkgs = []
+    for bpkg in sorted(bpkgs):
+        if bpkg.name in running_builds:
+            print("Already Building:", bpkg)
+            print("Task:", _tid2url(running_builds[bpkg.name]))
+            continue
+        nbpkgs.append(bpkg)
+    return tids, nbpkgs
+
 def build_packages(kapi, bpkgs, tag, giturl='git+https://git.centos.org/rpms/'):
     """
     Build the newer rpms to centos stream tags
     """
 
-    tids = []
+    tids, bpkgs = _filter_old_builds(kapi, bpkgs)
     for bpkg in sorted(bpkgs):
         url = giturl + bpkg.name
         if bpkg.stream: # Assume this is always here?
@@ -390,9 +412,10 @@ def build_packages(kapi, bpkgs, tag, giturl='git+https://git.centos.org/rpms/'):
 
         task_id = kapi.build(url, tag)
         weburl = "https://koji.mbox.centos.org/koji"
-        print("Task: %s/taskinfo?taskID=%d" % (weburl, task_id))
+        print("Task:", _tid2url(task_id))
         sys.stdout.flush()
         tids.append((task_id, bpkg))
+
     return tids
 
 def filter_nonstream_packages(pkgs):
@@ -454,12 +477,19 @@ def sync_packages(tag, compose, kapi):
         pprint(bpkgs)
         return
     bpkgs = check_denylist_builds(bpkgs)
+
+     # Quickly check very old task ids. and remove them if done.
+    tids = bpids_load()
+    if tids:
+        tids = bpids_wait_packages(kapi, tids, 0)
+        bpids_save(tids)
+
     bpkgs = check_unsynced_builds(bpkgs)
 
     taskids = build_packages(kapi, bpkgs, tag)
     return taskids
 
-def wait_packages(tids, waittm):
+def bpids_wait_packages(kapi, tids, waittm):
     import time
     try:
         import mtimecache
@@ -467,14 +497,15 @@ def wait_packages(tids, waittm):
         mtimecache = None
 
     if not waittm:
-        secs = 1
+        waitsecs = 0
     elif mtimecache is None:
-        secs = 2 * 60
+        waitsecs = 2 * 60
     else:
-        secs = mtimecache.parse_time(waittm)
+        waitsecs = mtimecache.parse_time(waittm)
 
     beg = time.time()
-    while tids and (time.time()-beg) < secs:
+    now = beg
+    while tids and (now-beg) <= waitsecs:
         ntids = []
         for tid, pkg in tids:
             info = kapi.getTaskInfo(tid)
@@ -482,17 +513,80 @@ def wait_packages(tids, waittm):
                 print("Task %s for %s doesn't exit!!" % (tid, pkg))
                 continue
             # if koji.TASK_STATES[info['state']].
-            if 'completion_ts' in info:
-                state = koji.TASK_STATES[info['state']]
+            # if 'completion_ts' in info:
+            state = koji.TASK_STATES[info['state']]
+            if state in ('CLOSED', 'CANCELED', 'FAILED'):
                 print("Task %s for %s ended: %s" % (tid, pkg, state))
                 continue
             ntids.append((tid, pkg))
         tids = ntids
         if ntids:
-            time.sleep(20 * len(tids))
+            secs = 20
+            if secs+(now-beg) > waitsecs:
+                secs = 10
+            if secs+(now-beg) > waitsecs:
+                secs = 5
+            if secs+(now-beg) > waitsecs:
+                secs = 1
+            if secs+(now-beg) <= waitsecs:
+                time.sleep(secs)
+        now = time.time()
 
+    return tids
+
+def bpids_print(tids):
     for tid, pkg in tids:
         print("Task still running %s for %s" % (tid, pkg))
+
+
+# Stupid format: 
+# header = sync2build-bipds-v-1
+# # Comments as in normal readfile ... blah.
+# <tid> = koji build task id
+# pkg-nevra [<space> nevra]*
+_bpids_file = "s2b-bpids.data"
+_bpids_f_header_v = 'sync2build-bipds-v-1'
+def bpids_save(tids):
+    if not tids:
+        if os.path.exists(_bpids_file):
+            os.remove(_bpids_file)
+        return
+
+    iow = open(_bpids_file + '.tmp', "w")
+    iow.write(_bpids_f_header_v + '\n')
+    for tid, pkg in tids:
+        iow.write(str(tid) + '\n')
+        iow.write(pkg.nevra + '\n')
+    iow.close()
+    os.rename(_bpids_file + '.tmp', _bpids_file)
+
+def bpids_load():
+    if not os.path.exists(_bpids_file):
+        return []
+
+    lines = matchlist.read_lines(_bpids_file)
+    if not lines:
+        print("Bad saved bpids file, empty.")
+        sys.exit(8)
+
+    if lines[0] != _bpids_f_header_v:
+        print("Bad saved bpids file, no header.")
+        sys.exit(8)
+    lines.pop(0)
+
+    if len(lines) % 1 != 0:
+        print("Bad saved bpids file, odd number of entries.")
+        sys.exit(8)
+
+    tids = []
+    while lines:
+        tid = lines.pop(0)
+        nevra = lines.pop(0)
+
+        tid = int(tid)
+        pkg = spkg.nevra2pkg(nevra)
+        tids.append((tid, pkg))
+    return tids
 
 def main():
     parser = OptionParser()
@@ -705,7 +799,9 @@ def main():
             print("Didn't find (so can't build):", tpkg, suffix)
         else:
             tids = build_packages(kapi, [pkg], options.packages_tag)
-            wait_packages(tids, options.wait)
+            tids = bpids_wait_packages(kapi, tids, options.wait)
+            bpids_print(tids)
+            bpids_save(tids)
 
         sys.exit(0)
     elif args[0] in ('wait-nvr', 'wait-nvra'):
@@ -720,17 +816,31 @@ def main():
             else:
                 tids.append((int(args[0]), spkg.nvra2pkg(args[1])))
             args = args[2:]
-        wait_packages(tids, options.wait)
+        tids = bpids_wait_packages(kapi, tids, options.wait)
+        bpids_print(tids)
         sys.exit(0)
 
-    if 'packages' in args:
+    elif args[0] in ('bpids-list', 'bipds'):
+        tids = bpids_load()
+        bpids_print(tids)
+        sys.exit(0)
+
+    elif args[0] in ('bpids-wait',):
+        tids = bpids_load()
+        tids = bpids_wait_packages(kapi, tids, options.wait)
+        bpids_print(tids)
+        bpids_save(tids)
+        sys.exit(0)
+
+    elif args[0] in ('packages', 'pkgs'):
         if not options.download_only:
             print(" ** Warning: This will build pkgs/mods in koji.")
 
         tag  = options.packages_tag
         comp = options.packages_compose
         tids = sync_packages(tag, comp, kapi)
-        wait_packages(tids, options.wait)
+        tids = bpids_wait_packages(kapi, tids, options.wait)
+        bpids_print(tids)
 
     if not sys.stdout.isatty():
         print(" -- Done --")
