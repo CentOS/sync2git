@@ -578,6 +578,7 @@ def bpids_load():
         print("Bad saved bpids file, odd number of entries.")
         sys.exit(8)
 
+    seen = set()
     tids = []
     while lines:
         tid = lines.pop(0)
@@ -585,6 +586,12 @@ def bpids_load():
 
         tid = int(tid)
         pkg = spkg.nevra2pkg(nevra)
+
+        if tid in seen:
+            print("Duplicate task id:", tid)
+            continue
+        seen.add(tid)
+
         tids.append((tid, pkg))
     return tids
 

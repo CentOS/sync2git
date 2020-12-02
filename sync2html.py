@@ -462,7 +462,11 @@ def html_main(fo, cpkgs, bpkgs, filter_pushed=False, filter_signed=False,
                 stats['tag-old'] += 1
                 continue
             if cpkg > bpkg:
-                pass
+                if denied:
+                    sbpkg = " " + str(bpkg)
+                    html_row(fo, cpkg, "autobuild denied:"+ sbpkg, lc="denied")
+                    stats['denied'] += 1
+                    continue
                 # html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
             else:
                 html_row(fo, cpkg, "ERROR: " + str(bpkg), lc="error")

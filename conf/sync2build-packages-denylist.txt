@@ -36,3 +36,5 @@ kernel-rt
 shim
 shim-unsigned-aarch64
 shim-unsigned-x64
+# Vulkan?
+vulkan-*
