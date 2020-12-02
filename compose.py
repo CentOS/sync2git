@@ -85,6 +85,23 @@ def packages_from_compose(rjson):
 
     return packages
 
+def packages_bin_from_compose(rjson):
+    rpms = []
+
+    for variant in rjson['payload']['rpms'].keys():
+        for arch in rjson['payload']['rpms'][variant].keys():
+            for srpm in rjson['payload']['rpms'][variant][arch].keys():
+                if 'module+' in srpm:
+                    continue
+                rpms.extend(rjson['payload']['rpms'][variant][arch][srpm].keys())
+
+    packages = []
+    for rpm in set(rpms):
+        p = spkg.nevra2pkg(rpm)
+        packages.append(p)
+
+    return packages
+
 
 def modules_from_compose(rjson):
     modules = []

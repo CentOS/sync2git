@@ -116,7 +116,8 @@ def composed_url2pkgs(baseurl):
     cstat = c.data_status()
     pdata = c.json_rpms()
     p = compose.packages_from_compose(pdata)
-    return p, cid, cstat
+    pb = compose.packages_bin_from_compose(pdata)
+    return p, pb, cid, cstat
 
 def composed_url2modules(baseurl):
     """
@@ -259,6 +260,9 @@ h1,h2,h3,h4,h5,h6 {
 }
 .table-row.missing {
     background: lightgreen;
+}
+.table-row.extra {
+    background: lightblue;
 }
 
 .table-data, .header__item {
@@ -411,7 +415,7 @@ def html_row(fo, *args, **kwargs):
 	</div>
 """)
 
-def html_main(fo, cpkgs, bpkgs, filter_pushed=False, filter_signed=False,
+def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
               prefix=None):
     fo.write(html_header)
 
@@ -428,7 +432,8 @@ def html_main(fo, cpkgs, bpkgs, filter_pushed=False, filter_signed=False,
 
     fo.write(html_table)
     stats = {'sign' : 0, 'done' : 0, 'push' : 0, 'build' : 0, 'denied' : 0,
-             'missing' : 0, 'git-old' : 0, 'tag-old' : 0, 'error' : 0}
+             'missing' : 0, 'extra' : 0, 'git-old' : 0, 'tag-old' : 0,
+             'error' : 0}
     for cpkg in sorted(cpkgs):
         denied = ml_pkgdeny.nvr(cpkg.name, cpkg.version, cpkg.release)
 
@@ -499,6 +504,18 @@ def html_main(fo, cpkgs, bpkgs, filter_pushed=False, filter_signed=False,
             html_row(fo, cpkg, "PUSH needed, not in git", lc="missing")
             stats['push'] += 1
 
+    if False:
+        # Comparing a compose to a tag gives way too many extras...
+        del pushed
+        composed = {}
+        for cpkg in cbpkgs:
+            composed[cpkg.name] = cpkg
+        for bpkg in sorted(bpkgs):
+            if bpkg.name in composed:
+                continue
+            html_row(fo, bpkg, "extra", lc="extra")
+            stats['extra'] += 1
+
     fo.write(html_footer)
 
     return stats
@@ -525,26 +542,28 @@ def main():
 
     load_package_denylist()
 
-    cpkgs, cid, cstat = composed_url2pkgs(options.packages_compose)
+    cpkgs, cbpkgs, cid, cstat = composed_url2pkgs(options.packages_compose)
     bpkgs = koji_tag2pkgs(tkapi, options.packages_tag, True)
 
     if not args: pass
     elif args[0] in ('packages', 'pkgs'):
-        html_main(sys.stdout, cpkgs, bpkgs)
+        html_main(sys.stdout, cpkgs, cbpkgs, bpkgs)
     elif args[0] in ('filtered-packages', 'filtered-pkgs', 'filt-pkgs'):
-        html_main(sys.stdout, cpkgs, bpkgs, filter_pushed=True)
+        html_main(sys.stdout, cpkgs, cbpkgs, bpkgs, filter_pushed=True)
     elif args[0] in ('output-files',):
         print("Compose:", cid, cstat)
 
         fo = open("all-packages.html", "w")
         prehtml = '<h2><a href="filt-packages.html">All</a> packages: ' +  cid
-        prehtml += '<p>RHEL Packages: ' + str(len(cpkgs))
+        pkghtml = '<p>RHEL Packages: %d (%d bin packages)'
+        pkghtml %= (len(cpkgs), len(cbpkgs))
+        prehtml += pkghtml
         sbpkgs = [x for x in bpkgs if x.arch == 'src']
         pkghtml = '<p>%s Packages: %d (%d bin packages)'
         pkghtml %= (options.packages_tag, len(sbpkgs), len(bpkgs))
         prehtml += pkghtml
         pre = lambda x: x.write(prehtml)
-        stats = html_main(fo, cpkgs, bpkgs, filter_pushed=False, prefix=pre)
+        stats = html_main(fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
 
         fo = open("filt-packages.html", "w")
         prehtml = '<h2><a href="all-packages.html">Filtered</a> packages: ' +  cid
@@ -556,7 +575,7 @@ def main():
             prehtml += pkghtml
 
         pre = lambda x: x.write(prehtml)
-        html_main(fo, cpkgs, bpkgs, filter_pushed=True, prefix=pre)
+        html_main(fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True, prefix=pre)
     else:
         print("Args: filtereed-packages | packages")
 
