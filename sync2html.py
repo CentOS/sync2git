@@ -179,6 +179,7 @@ def _tags2pkgs(tags):
 html_header = """\
     <html>
         <head>
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com">
             <style>
 @import url('https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700');
 
@@ -271,44 +272,59 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .header__item {
-	text-transform:uppercase;
+	text-transform: uppercase;
 }
 
 .filter__link {
-	color:white;
+	color: white;
 	text-decoration: none;
-	position:relative;
-	display:inline-block;
-	padding-left:$base-spacing-unit;
-	padding-right:$base-spacing-unit;
-	
-	&::after {
-		content:'';
-		position:absolute;
-		right:-($half-spacing-unit * 1.5);
-		color:white;
-		font-size:$half-spacing-unit;
+	position: relative;
+	display: inline-block;
+	padding-left: 24px;
+	padding-right: $24px;
+}
+.filter__link::after {
+		content: '';
+		position: absolute;
+		right: -18px;
+		color: white;
+		font-size: 12px;
 		top: 50%;
 		transform: translateY(-50%);
-	}
+}
 	
-	&.desc::after {
+.filter__link.desc::after {
 		content: '(desc)';
-	}
+}
 
-	&.asc::after {
+.filter__link.asc::after {
 		content: '(asc)';
-	}
-	
 }
             </style>
-            <script type="text/javascript">
+        </head>
+        <body>
+        <a href="unsigned-packages.txt">unsigned nvra</a> <br>
+"""
+
+# filter__link--number for build ids?
+
+html_table = """\
+        <div class="table">
+		<div class="table-header">
+			<div class="header__item"><a id="packages" class="filter__link" href="#">Packages</a></div>
+			<div class="header__item"><a id="status" class="filter__link" href="#">Status</a></div>
+		</div>
+        <div class="table-content">
+"""
+
+html_footer = """\
+		</div>
+		</div>
+          <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+          <script id="rendered-js">
 var properties = [
-	'name',
-	'wins',
-	'draws',
-	'losses',
-	'total',
+	'packages',
+	'status',
 ];
 
 $.each( properties, function( i, val ) {
@@ -372,24 +388,6 @@ $.each( properties, function( i, val ) {
 
 });
             </script>
-        </head>
-        <body>
-"""
-
-# filter__link--number for build ids?
-
-html_table = """\
-        <div class="table">
-		<div class="table-header">
-			<div class="header__item"><a id="pkg" class="filter__link" href="#">Packages</a></div>
-			<div class="header__item"><a id="pushed" class="filter__link" href="#">Pushed</a></div>
-		</div>
-        <div class="table-content">
-"""
-
-html_footer = """\
-		</div>
-		</div>
         </body>
     </html>
 """
