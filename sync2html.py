@@ -14,6 +14,7 @@ import os
 import shutil
 import tempfile
 import spkg
+import time
 import matchlist
 from optparse import OptionParser
 import git
@@ -554,8 +555,12 @@ def main():
     elif args[0] in ('output-files',):
         print("Compose:", cid, cstat)
 
+        tmhtml = '<h3> Generated:'
+        tmhtml += time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+
         fo = open("all-packages.html", "w")
         prehtml = '<h2><a href="filt-packages.html">All</a> packages: ' +  cid
+        prehtml += tmhtml
         pkghtml = '<p>RHEL Packages: %d (%d bin packages)'
         pkghtml %= (len(cpkgs), len(cbpkgs))
         prehtml += pkghtml
@@ -568,6 +573,7 @@ def main():
 
         fo = open("filt-packages.html", "w")
         prehtml = '<h2><a href="all-packages.html">Filtered</a> packages: ' +  cid
+        prehtml += tmhtml
         for stat in sorted(stats):
             if stats[stat] == 0:
                 continue
