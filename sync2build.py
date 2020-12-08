@@ -640,8 +640,10 @@ def bpids_wait_packages(kapi, bts, waittm):
         nbts = []
         for bt in sorted(bts):
             if bt.done:
-                print("Task %s for %s ended (%s): %s" % (bt.tid, bt.pkg,
-                                                         bt.duration, bt.state))
+                msg = "Task %s for %s ended on %s (%s): %s"
+                tm = time.gmtime(bt.completion_ts)
+                tm = time.strftime("%Y-%m-%d %H:%M", tm)
+                print(msg % (bt.tid, bt.pkg, tm, bt.duration, bt.state))
                 dbts.append(bt)
                 continue
             nbts.append(bt)
