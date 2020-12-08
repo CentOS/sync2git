@@ -249,6 +249,12 @@ h1,h2,h3,h4,h5,h6 {
 }
 .table-row.done {
 }
+.table-row.nobuild {
+    background: lightgrey;
+}
+.table-row.missing {
+    background: lightgrey;
+}
 .table-row.need_build {
     background: lightgreen;
     text-decoration: overline;
@@ -259,9 +265,6 @@ h1,h2,h3,h4,h5,h6 {
 }
 .table-row.need_signing {
     background: yellow;
-}
-.table-row.missing {
-    background: lightgreen;
 }
 .table-row.extra {
     background: lightblue;
@@ -490,7 +493,7 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
                 continue # See if the next oldest is ==
             if cpkg == tpkg:
                 if cpkg == bpkg:
-                    html_row(fo, cpkg, "BUILD needed, no build", lc="need_build")
+                    html_row(fo, cpkg, "No BUILD", lc="nobuild")
                 else:
                     html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
                 stats['build'] += 1
@@ -503,7 +506,7 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
             html_row(fo, cpkg, "Error: bpkg: " + str(bpkg) + " tpkg: ", str(tpkg), lc="error")
             stats['error'] += 1
         if not found:
-            html_row(fo, cpkg, "PUSH needed, not in git", lc="missing")
+            html_row(fo, cpkg, "Missing from git", lc="missing")
             stats['push'] += 1
 
     if False:
