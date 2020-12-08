@@ -399,6 +399,13 @@ def _filter_old_builds(kapi, bpkgs):
                 print("Already Building:", bpkg)
                 print("Task:", _tid2url(bt.tid))
                 continue
+            nbts = []
+            for bt in bts:
+                if bt.pkg.name == bpkg.name:
+                    continue
+                nbts.append(bt)
+            bts = nbts
+
         nbpkgs.append(bpkg)
     return bts, nbpkgs
 
