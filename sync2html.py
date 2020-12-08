@@ -208,9 +208,9 @@ h1,h2,h3,h4,h5,h6 {
 	max-width: 1000px;
 	margin-right:auto;
 	margin-left:auto;
-	display:flex;
-	justify-content:center;
-	align-items:center;
+	/* display:flex; */
+	/* justify-content:center; */
+	/* align-items:center; */
 	min-height:100vh;
 }
 
@@ -220,14 +220,14 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .table-header {
-	display:flex;
+	/* display:flex; */
 	width:100%;
 	background:#000;
 	padding:($half-spacing-unit * 1.5) 0;
 }
 
 .table-row {
-	display:flex;
+	/* display:flex; */
 	width:100%;
 	padding:($half-spacing-unit * 1.5) 0;
 	
@@ -271,7 +271,7 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .table-data, .header__item {
-	flex: 1 1 20%;
+	/* flex: 1 1 20%; */
 	text-align: left;
 }
 
@@ -285,13 +285,13 @@ h1,h2,h3,h4,h5,h6 {
 	position: relative;
 	display: inline-block;
 	padding-left: 24px;
-	padding-right: $24px;
+	padding-right: 24px;
 }
 .filter__link::after {
 		content: '';
 		position: absolute;
-		right: -18px;
 		color: white;
+		right: -18px;
 		font-size: 12px;
 		top: 50%;
 		transform: translateY(-50%);
@@ -313,22 +313,22 @@ h1,h2,h3,h4,h5,h6 {
 # filter__link--number for build ids?
 
 html_table = """\
-        <div class="table">
-		<div class="table-header">
-			<div class="header__item"><a id="packages" class="filter__link" href="#">Packages</a></div>
-			<div class="header__item"><a id="status" class="filter__link" href="#">Status</a></div>
-		</div>
-        <div class="table-content">
+        <table class="table">
+		<tr class="table-header">
+			<td class="header__item"><a id="packages" class="filter__link" href="#">Packages</a></td>
+			<td class="header__item"><a id="status" class="filter__link" href="#">Status</a></td>
+			<td class="header__item"><a id="note" class="filter__link" href="#">Note</a></td>
+		</tr>
 """
 
 html_footer = """\
-		</div>
-		</div>
+		</table>
           <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
           <script id="rendered-js">
 var properties = [
 	'packages',
 	'status',
+	'note',
 ];
 
 $.each( properties, function( i, val ) {
@@ -351,7 +351,7 @@ $.each( properties, function( i, val ) {
 
 		var parent = $(this).closest('.header__item');
     		var index = $(".header__item").index(parent);
-		var $table = $('.table-content');
+		var $table = $('.table');
 		var rows = $table.find('.table-row').get();
 		var isSelected = $(this).hasClass('filter__link--active');
 		var isNumber = $(this).hasClass('filter__link--number');
@@ -405,20 +405,25 @@ def html_row(fo, *args, **kwargs):
     links = kwargs.get('links', {})
 
     fo.write("""\
-    <div class="table-row%s">
+    <tr class="table-row%s">
 """ % (lc,))
     for arg in args:
         if arg in links:
             arg = '<a href="%s">%s</a>' % (links[arg], arg)
         fo.write("""\
-		<div class="table-data">%s</div>
+		<td class="table-data">%s</td>
 """ % (arg,))
     fo.write("""\
-	</div>
+	</tr>
 """)
 
 def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
               prefix=None):
+
+    def _html_row(status, **kwargs):
+        note = cpkg._html_note or ""
+        html_row(fo, cpkg, status, note, **kwargs)
+
     fo.write(html_header)
 
     if prefix:
@@ -440,7 +445,7 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
 
         if cpkg.name not in pushed:
             if denied:
-                html_row(fo, cpkg, "denied", lc="denied")
+                _html_row("denied", lc="denied")
                 stats['denied'] += 1
                 continue
             # html_row(fo, cpkg, "MISSING", lc="missing")
@@ -454,28 +459,27 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
             links = {cpkg : weburl}
             if cpkg == bpkg:
                 if not filter_signed and not bpkg.signed:
-                    html_row(fo, cpkg, "pushed not signed", lc="need_signing",
-                             links=links)
+                    _html_row("pushed not signed", lc="need_signing",
+                              links=links)
                     stats['sign'] += 1
                 elif not filter_pushed:
-                    html_row(fo, cpkg, "pushed and signed", lc="done",
-                             links=links)
+                    _html_row("pushed and signed", lc="done", links=links)
                     stats['done'] += 1
                 continue
             if cpkg < bpkg:
-                html_row(fo, cpkg, "OLDER than build: " + str(bpkg), lc="older",
-                         links=links)
+                _html_row("OLDER than build: " + str(bpkg), lc="older",
+                          links=links)
                 stats['tag-old'] += 1
                 continue
             if cpkg > bpkg:
                 if denied:
                     sbpkg = " " + str(bpkg)
-                    html_row(fo, cpkg, "autobuild denied:"+ sbpkg, lc="denied")
+                    _html_row("autobuild denied:"+ sbpkg, lc="denied")
                     stats['denied'] += 1
                     continue
                 # html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
             else:
-                html_row(fo, cpkg, "ERROR: " + str(bpkg), lc="error")
+                _html_row("ERROR: " + str(bpkg), lc="error")
                 stats['error'] += 1
 
         # cpkg > bpkg, or no bpkg
@@ -488,25 +492,25 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
             found = True
             # This is the newest version in git...
             if cpkg < tpkg:
-                html_row(fo, cpkg, "OLDER than git: " + str(tpkg), lc="older")
+                _html_row("OLDER than git: " + str(tpkg), lc="older")
                 stats['git-old'] += 1
                 continue # See if the next oldest is ==
             if cpkg == tpkg:
                 if cpkg == bpkg:
-                    html_row(fo, cpkg, "No BUILD", lc="nobuild")
+                    _html_row("No BUILD", lc="nobuild")
                 else:
-                    html_row(fo, cpkg, "BUILD needed, latest build: " + str(bpkg), lc="need_build")
+                    _html_row("BUILD needed, latest build: " + str(bpkg), lc="need_build")
                 stats['build'] += 1
                 break
             if cpkg > tpkg:
-                html_row(fo, cpkg, "PUSH needed, latest git: " + str(tpkg), lc="need_push")
+                _html_row("PUSH needed, latest git: " + str(tpkg), lc="need_push")
                 stats['push'] += 1
                 break
 
-            html_row(fo, cpkg, "Error: bpkg: " + str(bpkg) + " tpkg: ", str(tpkg), lc="error")
+            _html_row("Error: bpkg: " + str(bpkg) + " tpkg: ", str(tpkg), lc="error")
             stats['error'] += 1
         if not found:
-            html_row(fo, cpkg, "Missing from git", lc="missing")
+            _html_row("Missing from git", lc="missing")
             stats['push'] += 1
 
     if False:
@@ -518,12 +522,29 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
         for bpkg in sorted(bpkgs):
             if bpkg.name in composed:
                 continue
-            html_row(fo, bpkg, "extra", lc="extra")
+            html_row(fo, bpkg, "extra", "", lc="extra")
             stats['extra'] += 1
 
     fo.write(html_footer)
 
     return stats
+
+def _read_note(fname):
+    if not os.path.exists(fname):
+        return None
+    return open(fname).read()
+
+def read_note(basedir, pkg):
+    for k in (pkg.nvra, pkg.nvr, pkg.nv, pkg.name):
+        note = _read_note(basedir + '/' + k)
+        if note is not None:
+            return note
+
+    return None
+
+def read_notes(basedir, pkgs):
+    for pkg in pkgs:
+        pkg._html_note = read_note(basedir, pkg)
 
 def main():
     parser = OptionParser()
@@ -537,6 +558,8 @@ def main():
                       help="Specify package compose to sync", default="http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.4/")
     parser.add_option("", "--from-modules-compose", dest="modules_compose",
                       help="Specify module compose to sync", default="http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.4")
+    parser.add_option("", "--notes", dest="notes",
+                      help="Specify basedir to package notes", default="notes")
 
 
     (options, args) = parser.parse_args()
@@ -549,6 +572,8 @@ def main():
 
     cpkgs, cbpkgs, cid, cstat = composed_url2pkgs(options.packages_compose)
     bpkgs = koji_tag2pkgs(tkapi, options.packages_tag, True)
+
+    read_notes(options.notes, cpkgs)
 
     if not args: pass
     elif args[0] in ('packages', 'pkgs'):
