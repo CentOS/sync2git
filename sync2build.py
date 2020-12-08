@@ -13,9 +13,17 @@ import sys
 import os
 import shutil
 import tempfile
+import time
+from optparse import OptionParser
+
 import spkg
 import matchlist
-from optparse import OptionParser
+
+# Keep builds around for 4 hours
+conf_ttl_builds = 60*60*4
+
+# Keep failed builds around for 18 hours (doesn't rebuild during that time)
+conf_ttl_failed_builds = 60*60*18
 
 # Do we want to filter through the CVE checker
 conf_filter_cve = True
@@ -374,29 +382,32 @@ def _tid2url(tid):
     return "%s/taskinfo?taskID=%d" % (weburl, tid)
 
 def _filter_old_builds(kapi, bpkgs):
-    tids = bpids_load()
-    if False and tids: # If we do this we can race between git check and build.
-        tids = bpids_wait_packages(kapi, tids, 0)
+    bts = bpids_load(kapi)
 
     running_builds = {}
-    for tid,pkg in tids:
-        running_builds[pkg.name] = tid
+    for bt in bts:
+        running_builds[bt.pkg.name] = bt
 
     nbpkgs = []
     for bpkg in sorted(bpkgs):
         if bpkg.name in running_builds:
-            print("Already Building:", bpkg)
-            print("Task:", _tid2url(running_builds[bpkg.name]))
-            continue
+            bt = running_builds[bpkg.name]
+            if bpkg <= bt.pkg:
+                print("Skipping rebuild:", bpkg)
+                continue
+            elif not bt.done:
+                print("Already Building:", bpkg)
+                print("Task:", _tid2url(bt.tid))
+                continue
         nbpkgs.append(bpkg)
-    return tids, nbpkgs
+    return bts, nbpkgs
 
 def build_packages(kapi, bpkgs, tag, giturl='git+https://git.centos.org/rpms/'):
     """
     Build the newer rpms to centos stream tags
     """
 
-    tids, bpkgs = _filter_old_builds(kapi, bpkgs)
+    bts, bpkgs = _filter_old_builds(kapi, bpkgs)
     for bpkg in sorted(bpkgs):
         url = giturl + bpkg.name
         if bpkg.stream: # Assume this is always here?
@@ -414,9 +425,9 @@ def build_packages(kapi, bpkgs, tag, giturl='git+https://git.centos.org/rpms/'):
         weburl = "https://koji.mbox.centos.org/koji"
         print("Task:", _tid2url(task_id))
         sys.stdout.flush()
-        tids.append((task_id, bpkg))
+        bts.append(BuildTask(kapi, task_id, bpkg))
 
-    return tids
+    return bts
 
 def filter_nonstream_packages(pkgs):
     ret = []
@@ -479,18 +490,129 @@ def sync_packages(tag, compose, kapi):
     bpkgs = check_denylist_builds(bpkgs)
 
      # Quickly check very old task ids. and remove them if done.
-    tids = bpids_load()
-    if tids:
-        tids = bpids_wait_packages(kapi, tids, 0)
-        bpids_save(tids)
+    bts = bpids_load(kapi)
+    if bts:
+        bts, dbts = bpids_wait_packages(kapi, bts, 0)
+        for bt in dbts: # keep tasks around for a while.
+            if bt.state == 'CLOSED': # Drop successes
+                if bt.since > conf_ttl_builds:
+                    continue
+             # Keep failures around for a bit...
+            if bt.since > conf_ttl_failed_builds:
+                continue
+            bts.append(bt)
+        bpids_save(bts)
 
     bpkgs = check_unsynced_builds(bpkgs)
 
-    taskids = build_packages(kapi, bpkgs, tag)
-    return taskids
+    bts = build_packages(kapi, bpkgs, tag)
+    return bts
 
-def bpids_wait_packages(kapi, tids, waittm):
-    import time
+def _task_done(state):
+    return state in ('CLOSED', 'CANCELED', 'FAILED')
+def _task_state(info):
+    return koji.TASK_STATES[info['state']]
+
+class BuildTask(object):
+    def __init__(self, kapi, tid, pkg):
+        self.kapi = kapi
+
+        self.tid = tid
+        self.pkg = pkg
+
+        self._info = None
+
+    # Same tid's should have the same pkgs.
+    def __eq__(self, o):
+        return self.tid == o.tid
+    def __lt__(self, o):
+        return self.tid < o.tid
+
+    def __str__(self):
+        return "Task=%d; Pkg=%s; Status=%s; dur=%s" % (self.tid, self.pkg,
+                                                       self.status, self.duration)
+
+    def _get_info(self):
+        info = self.kapi.getTaskInfo(self.tid)
+        if info is not None:
+            self._info = info
+            self._tm_info = time.time()
+        return self._info
+
+    @property
+    def _chk_info(self):
+        if self._info is None:
+            self._get_info()
+        elif _task_done(_task_state(self._info)): # recursion
+            pass
+        elif time.time()-self._tm_info >= 1: # Don't spam update reqs
+            self._get_info()
+        return self._info    
+
+    @property
+    def done(self):
+        # Could also check if self.completion_ts is not None
+        return _task_done(self.state)
+
+    @property
+    def state(self):
+        if self._chk_info is None:
+            return None
+        return _task_state(self._info)
+
+    @property
+    def completion_ts(self):
+        if self._chk_info is None:
+            return None
+        if self._info['completion_ts'] is None:
+            return None
+        return self._info['completion_ts']
+
+    @property
+    def create_ts(self):
+        if self._chk_info is None:
+            return None
+        return self._info['create_ts']
+
+    @property
+    def start_ts(self):
+        if self._chk_info is None:
+            return None
+        if self._info['start_ts'] is None:
+            return None
+        return self._info['start_ts']
+
+    @property
+    def duration(self):
+        try:
+            import mtimecache
+        except:
+            mtimecache = None
+        def fmt_dur(x):
+            if mtimecache is None:
+                return str(int(x)) + 's'
+            return mtimecache.format_duration(x)
+
+        beg = self.start_ts
+        if beg is None:
+            return '<not-started>'
+        end = self.completion_ts
+        if end is None:
+            dur = fmt_dur(time.time()-beg)
+            return dur + '+'
+        return fmt_dur(end-beg)
+
+    @property
+    def since(self):
+        end = self.completion_ts
+        if end is None:
+            return 0
+        now = time.time()
+        if now < end:
+            return 0
+        return now-end
+
+def bpids_wait_packages(kapi, bts, waittm):
     try:
         import mtimecache
     except:
@@ -503,24 +625,21 @@ def bpids_wait_packages(kapi, tids, waittm):
     else:
         waitsecs = mtimecache.parse_time(waittm)
 
+    dbts = []
+
     beg = time.time()
     now = beg
-    while tids and (now-beg) <= waitsecs:
-        ntids = []
-        for tid, pkg in tids:
-            info = kapi.getTaskInfo(tid)
-            if info is None:
-                print("Task %s for %s doesn't exit!!" % (tid, pkg))
+    while bts and (now-beg) <= waitsecs:
+        nbts = []
+        for bt in sorted(bts):
+            if bt.done:
+                print("Task %s for %s ended (%s): %s" % (bt.tid, bt.pkg,
+                                                         bt.duration, bt.state))
+                dbts.append(bt)
                 continue
-            # if koji.TASK_STATES[info['state']].
-            # if 'completion_ts' in info:
-            state = koji.TASK_STATES[info['state']]
-            if state in ('CLOSED', 'CANCELED', 'FAILED'):
-                print("Task %s for %s ended: %s" % (tid, pkg, state))
-                continue
-            ntids.append((tid, pkg))
-        tids = ntids
-        if ntids:
+            nbts.append(bt)
+        bts = nbts
+        if bts:
             secs = 20
             if secs+(now-beg) > waitsecs:
                 secs = 10
@@ -532,11 +651,15 @@ def bpids_wait_packages(kapi, tids, waittm):
                 time.sleep(secs)
         now = time.time()
 
-    return tids
+    return bts, dbts
 
-def bpids_print(tids):
-    for tid, pkg in tids:
-        print("Task still running %s for %s" % (tid, pkg))
+def bpids_print(bts):
+    for bt in sorted(bts):
+        dur = bt.duration
+        if bt.start_ts is None:
+            print("Task %s waiting for %s" % (bt.tid, bt.pkg))
+        else:
+            print("Task %s running (%s) for %s" % (bt.tid, bt.duration, bt.pkg))
 
 
 # Stupid format: 
@@ -546,25 +669,31 @@ def bpids_print(tids):
 # pkg-nevra [<space> nevra]*
 _bpids_file = "s2b-bpids.data"
 _bpids_f_header_v = 'sync2build-bipds-v-1'
-def bpids_save(tids):
-    if not tids:
-        if os.path.exists(_bpids_file):
-            os.remove(_bpids_file)
+def bpids_save(bts, fname=None):
+    if fname is None:
+        fname = _bpids_file
+
+    if not bts:
+        if os.path.exists(fname):
+            os.remove(fname)
         return
 
-    iow = open(_bpids_file + '.tmp', "w")
+    iow = open(fname + '.tmp', "w")
     iow.write(_bpids_f_header_v + '\n')
-    for tid, pkg in tids:
-        iow.write(str(tid) + '\n')
-        iow.write(pkg.nevra + '\n')
+    for bt in sorted(bts):
+        iow.write(str(bt.tid) + '\n')
+        iow.write(bt.pkg.nevra + '\n')
     iow.close()
-    os.rename(_bpids_file + '.tmp', _bpids_file)
+    os.rename(fname + '.tmp', fname)
 
-def bpids_load():
-    if not os.path.exists(_bpids_file):
+def bpids_load(kapi, fname=None):
+    if fname is None:
+        fname = _bpids_file
+
+    if not os.path.exists(fname):
         return []
 
-    lines = matchlist.read_lines(_bpids_file)
+    lines = matchlist.read_lines(fname)
     if not lines:
         print("Bad saved bpids file, empty.")
         sys.exit(8)
@@ -579,7 +708,7 @@ def bpids_load():
         sys.exit(8)
 
     seen = set()
-    tids = []
+    bts = []
     while lines:
         tid = lines.pop(0)
         nevra = lines.pop(0)
@@ -592,8 +721,8 @@ def bpids_load():
             continue
         seen.add(tid)
 
-        tids.append((tid, pkg))
-    return tids
+        bts.append(BuildTask(kapi, tid, pkg))
+    return bts
 
 def main():
     parser = OptionParser()
@@ -677,6 +806,7 @@ def main():
                 print(bpkg)
         bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
+        sys.exit(0)
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
         args = args[1:]
 
@@ -819,38 +949,25 @@ def main():
         if not found:
             print("Didn't find (so can't build):", tpkg, suffix)
         else:
-            tids = build_packages(kapi, [pkg], options.packages_tag)
-            tids = bpids_wait_packages(kapi, tids, options.wait)
-            bpids_print(tids)
-            bpids_save(tids)
+            bts = build_packages(kapi, [pkg], options.packages_tag)
+            bts, dbts = bpids_wait_packages(kapi, bts, options.wait)
+            bpids_print(bts)
+            for bt in dbts: # Keep everything around for logs
+                bts.append(bt)
+            bpids_save(bts)
 
-        sys.exit(0)
-    elif args[0] in ('wait-nvr', 'wait-nvra'):
-        nvr = True
-        if args[0] == 'build-nvra':
-            nvr = False
-        args = args[1:]
-        tids = []
-        while len(args) > 1:
-            if nvr:
-                tids.append((int(args[0]), spkg.nvr2pkg(args[1])))
-            else:
-                tids.append((int(args[0]), spkg.nvra2pkg(args[1])))
-            args = args[2:]
-        tids = bpids_wait_packages(kapi, tids, options.wait)
-        bpids_print(tids)
         sys.exit(0)
 
     elif args[0] in ('bpids-list', 'bipds'):
-        tids = bpids_load()
+        tids = bpids_load(kapi)
         bpids_print(tids)
         sys.exit(0)
 
     elif args[0] in ('bpids-wait',):
-        tids = bpids_load()
-        tids = bpids_wait_packages(kapi, tids, options.wait)
-        bpids_print(tids)
-        bpids_save(tids)
+        bts = bpids_load(kapi)
+        bts, dbts = bpids_wait_packages(kapi, bts, options.wait)
+        bpids_print(bts)
+        bpids_save(bts)
         sys.exit(0)
 
     elif args[0] in ('packages', 'pkgs'):
@@ -859,9 +976,17 @@ def main():
 
         tag  = options.packages_tag
         comp = options.packages_compose
-        tids = sync_packages(tag, comp, kapi)
-        tids = bpids_wait_packages(kapi, tids, options.wait)
-        bpids_print(tids)
+        bts = sync_packages(tag, comp, kapi)
+        bts, dbts = bpids_wait_packages(kapi, bts, options.wait)
+        bpids_print(bts)
+        for bt in dbts:
+            if bt.state == 'CLOSED': # Drop successes
+                continue
+             # Keep failures around for a bit...
+            if bt.since > conf_ttl_failed_builds:
+                continue
+            bts.append(bt)
+        bpids_save(bts)
 
     if not sys.stdout.isatty():
         print(" -- Done --")
