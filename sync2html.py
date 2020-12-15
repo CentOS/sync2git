@@ -421,7 +421,9 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
               prefix=None):
 
     def _html_row(status, **kwargs):
-        note = cpkg._html_note or ""
+        note = bpkg._html_note
+        note = note or cpkg._html_note
+        note = note or ""
         html_row(fo, cpkg, status, note, **kwargs)
 
     fo.write(html_header)
@@ -573,6 +575,7 @@ def main():
     cpkgs, cbpkgs, cid, cstat = composed_url2pkgs(options.packages_compose)
     bpkgs = koji_tag2pkgs(tkapi, options.packages_tag, True)
 
+    read_notes(options.notes, bpkgs)
     read_notes(options.notes, cpkgs)
 
     if not args: pass
