@@ -183,14 +183,13 @@ def koji_epochnum(pkg):
     return int(pkg.epoch)
 
 
-def nvr2pkg(nvr):
+def nvr2pkg(nvr, arch=None, epoch=None):
     n, v, r = nvr.rsplit('-', 2)
-    return Pkg(n, v, r)
+    return Pkg(n, v, r, arch, epoch)
 
-def nvra2pkg(nvra):
+def nvra2pkg(nvra, epoch=None):
     nvr, a = nvra.rsplit('.', 1)
-    pkg = nvr2pkg(nvr)
-    pkg.arch = a
+    pkg = nvr2pkg(nvr, a, epoch)
     return pkg
 
 def nevra2pkg(nevra):

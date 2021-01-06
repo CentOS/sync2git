@@ -10,6 +10,30 @@ from __future__ import print_function
 
 import string
 
+import ctypes
+import sys
+if False: pass
+
+elif sys.platform == "linux" or sys.platform == "linux2":
+    libc_name = "libc.so.6" # "libc.so.6"
+elif sys.platform == "darwin":
+    libc_name = "/usr/lib/libc.dylib" # "libc.so.6"
+
+if libc_name is None:
+    _fcmp = cmp # Works in py2 at least...
+else:
+ libc = ctypes.CDLL(libc_name)
+ libc.memcmp.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+
+ def _fcmp(a, b):
+    la = len(a)
+    lb = len(b)
+    ret = libc.memcmp(a, b, min(la, lb))
+    if ret != 0:
+        return ret
+    return la - lb
+
+
 #  The basic way rpm works is to take a string and split it into segments
 # of alpha/numeric/tilde/other chars. All the "other" parts are considered
 # equal. A tilde is newer. , the others are compared
@@ -135,7 +159,7 @@ def rpmvercmp(s1, s2):
             if len(cs1) > len(cs2):
                 return 1
 
-        ret = cmp(cs1, cs2) # bytes.Compare(cs1, cs2)
+        ret = _fcmp(cs1, cs2) # bytes.Compare(cs1, cs2)
         if ret != 0:
             return ret
 

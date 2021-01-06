@@ -143,22 +143,30 @@ def koji_archpkgs2sigs(kapi, pkgs):
 
     results = kapi.multiCall()
     for ([result], pkg) in zip(results, pkgs):
+        pkg.sighash = []
         pkg.signed = []
         for res in result:
             if not res['sigkey']:
                 continue
+            pkg.sighash.append(res['sighash'])
             pkg.signed.append(res['sigkey'])
         if len(pkg.signed) == 0:
+            pkg.sighash = ''
             pkg.signed = ''
         if len(pkg.signed) == 1:
+            pkg.sighash = pkg.sighash[0]
             pkg.signed = pkg.signed[0]
 
-def koji_pkgs2archsigs(kapi, pkgs):
+def koji_pkgs2archsigs(kapi, pkgs, filter=None):
     if len(pkgs) > _koji_max_query:
         ret = []
         for i in range(0, len(pkgs), _koji_max_query):
-            ret.extend(koji_pkgs2archsigs(kapi, pkgs[i:i + _koji_max_query]))
+            npkgs = pkgs[i:i + _koji_max_query]
+            ret.extend(koji_pkgs2archsigs(kapi, npkgs, filter))
         return ret
+
+    if filter is None:
+        filter = lambda x: False
 
     kapi.multicall = True
     for pkg in pkgs:
@@ -168,10 +176,11 @@ def koji_pkgs2archsigs(kapi, pkgs):
     results = kapi.multiCall()
     for ([rpms], bpkg) in zip(results, pkgs):
         for rpm in rpms:
-            pkg = spkg.nvr2pkg(rpm['nvr'])
-            pkg.arch = rpm['arch']
+            pkg = spkg.nvr2pkg(rpm['nvr'], arch=rpm['arch'], epoch=rpm['epoch'])
             pkg._koji_rpm_id = rpm['id']
             pkg._koji_build_id = bpkg._koji_build_id
+            if filter(pkg):
+                continue
             ret.append(pkg)
 
     koji_archpkgs2sigs(kapi, ret)
@@ -182,8 +191,8 @@ def koji_tag2pkgs(kapi, tag, signed=False):
     Return a list of latest builds that are tagged with certain tag
     """
     ret = []
-    for rpminfo in kapi.listTagged(tag, latest=True):
-        pkg = spkg.nvr2pkg(rpminfo['nvr'])
+    for rpminfo in kapi.listTagged(tag, inherit=True, latest=True):
+        pkg = spkg.nvr2pkg(rpminfo['nvr'], epoch=rpminfo['epoch'])
         pkg._koji_build_id = rpminfo['build_id']
         ret.append(pkg)
 
@@ -191,6 +200,49 @@ def koji_tag2pkgs(kapi, tag, signed=False):
         ret = koji_pkgs2archsigs(kapi, ret)
 
     return ret
+
+# Stupid py3...
+def b(x):
+    return str(x).encode('utf-8')
+
+def koji_tag2checksum(kapi, tag, checksum='sha1'):
+    """
+    Return a checksum for the packages in a tag
+    """
+
+    import hashlib
+    pkgs = koji_tag2pkgs(kapi, tag, signed=True)
+
+    num = 0
+    ret = hashlib.new(checksum)
+    for pkg in sorted(pkgs):
+        num += 1
+        ret.update(b(pkg.envra))
+        ret.update(b(' '))
+        ret.update(b(pkg.sighash))
+        ret.update(b('\n'))
+
+    return str(num) + ":" + ret.hexdigest()
+
+def koji_tag2srpms_checksum(kapi, tag, checksum='sha1'):
+    """
+    Return a checksum for the packages in a tag
+    """
+
+    import hashlib
+    pkgs = koji_tag2pkgs(kapi, tag, signed=False)
+    pkgs = koji_pkgs2archsigs(kapi, pkgs, filter=lambda x: x.arch != 'src')
+
+    num = 0
+    ret = hashlib.new(checksum)
+    for pkg in sorted(pkgs):
+        num += 1
+        ret.update(b(pkg.envra))
+        ret.update(b(' '))
+        ret.update(b(pkg.sighash))
+        ret.update(b('\n'))
+
+    return str(num) + ":" + ret.hexdigest()
 
 def composed_url2pkgs(baseurl):
     """
@@ -756,7 +808,8 @@ def main():
     (options, args) = parser.parse_args()
 
     kapi = koji.ClientSession(options.koji_host)
-    kapi.ssl_login("/compose/.koji/mbox_admin.pem", None, "/compose/.koji/ca.crt")
+    if options.koji_host == "https://koji.mbox.centos.org/kojihub":
+        kapi.ssl_login("/compose/.koji/mbox_admin.pem", None, "/compose/.koji/ca.crt")
 
     load_package_list()
     load_package_denylist()
@@ -977,6 +1030,16 @@ def main():
         bts, dbts = bpids_wait_packages(kapi, bts, options.wait)
         bpids_print(bts)
         bpids_save(bts)
+        sys.exit(0)
+
+    elif args[0] in ('tag-hash', 'tag-rpms-hash', 'tag-srpms-hash'):
+        tag  = options.packages_tag
+        csum = args[1]
+        if args[0] == 'tag-srpms-hash':
+            data = 's' + koji_tag2srpms_checksum(kapi, tag, csum)
+        else:
+            data = koji_tag2checksum(kapi, tag, csum)
+        print(data)
         sys.exit(0)
 
     elif args[0] in ('packages', 'pkgs'):
