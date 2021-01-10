@@ -56,5 +56,5 @@ python3 ./sync2git.py \
   --modules-compose=$nightly_compose \
   $packages \
   $modules \
-  > "$fname.out.log" 2> "$fname.err.log"
+  push > "$fname.out.log" 2> "$fname.err.log"
 

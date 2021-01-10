@@ -759,14 +759,46 @@ def main():
         conf_data_downloadonly = True
     else:
         print(" ** Warning: This will run alt-src to push packages/modules.")
-    if options.sync_packages:
-        tag  = options.packages_tag
-        comp = options.packages_compose
-        sync_packages(tag, comp, kapi, packages_to_track, denylist)
-    if options.sync_modules:
-        tag  = options.modules_tag
-        comp = options.modules_compose
-        sync_modules(tag, comp, kapi, modules_to_track, options.summary_modules)
+
+    if not args: pass
+    elif args[0] in ('force-push-module',):
+        builds = []
+        for arg in args[1:]:
+            n, s, v, c = arg.split(':')
+            mod = compose.Module()
+            mod.name = n
+            mod.stream = s
+            mod.version = v
+            mod.context = c
+            ent = {'package_name' : mod.name, 'nvr' : mod.nsvc(),
+                # These aren't used atm.
+                'name' : mod.name, 'version' : mod.stream,
+                'release' : mod.vc(),
+                'epoch' : None}
+            builds.append(ent)
+
+        modules_to_track = set()
+        for build in tagged_builds:
+            modules_to_track.add(build['package_name'])
+
+        unsynced_builds, extra_pkgs = check_unsynced_modules(kapi, builds,
+                                                             modules_to_track)
+        # Don't do CVE check here...
+        extra_pkg2 = sync_modules_directly(kapi, unsynced_builds)
+        # These are the extra rpms needed for already pushed modules...
+        sync_directly(extra_pkgs)
+        sync_directly(extra_pkg2)
+
+    elif args[0] in ('push',):
+        if options.sync_packages:
+            tag  = options.packages_tag
+            comp = options.packages_compose
+            sync_packages(tag, comp, kapi, packages_to_track, denylist)
+        if options.sync_modules:
+            tag  = options.modules_tag
+            comp = options.modules_compose
+            sync_modules(tag, comp, kapi, modules_to_track, options.summary_modules)
+
     if not sys.stdout.isatty():
         print(" -- End:", _curtime())
 
