@@ -12,6 +12,8 @@ import shutil
 import tempfile
 from optparse import OptionParser
 
+import spkg
+
 # Do we want to filter through the CVE checker
 conf_filter_cve = True
 
@@ -321,13 +323,13 @@ def nvr2shared_nvr(nvr):
         nvr = nvr[:val]
     return nvr
 
-def find_shared_nvr(nvr, builds):
+def find_shared_nvr(nvr, pkgs):
     """
     Given a shared nvr, search through all the build dicts. and see if it
     matches.
     """
-    for build in builds:
-        snvr = nvr2shared_nvr(build['nvr'])
+    for pkg in pkgs:
+        snvr = nvr2shared_nvr(pkg.nvr)
         if snvr == nvr:
             return True
     return False
@@ -395,7 +397,7 @@ def check_extra_rpms(kapi, build, modcodir, extras):
         if not new_build:
             continue
 
-        ent._git-branch = 'c8s-stream-' + build['version']
+        ent._git_branch = 'c8s-stream-' + build['version']
         print(("  ** PKG %s in mod %s needs to be updated to %s") % (ent.name, build['nvr'], ent))
         if __output_old_tags:
             for tag in sorted([str(x) for x in tags]):
@@ -577,7 +579,7 @@ def alt_src_cmd_module(tag, filename):
     sys.stdout.flush()
     _alt_src_cmd("--push --brew " + tag + " " + filename)
 
-def _builds2bpkgs(builds)
+def _builds2bpkgs(builds):
     bpkgs = []
     for build in builds:
         bpkg = spkg.nvr2pkg(build['nvr'])
@@ -606,7 +608,7 @@ def sync_directly(bpkgs):
     for bpkg in sorted(bpkgs):
         branch = "c8s"
         if hasattr(bpkg, '_git_branch'):
-            branch = bpkg._git_branch']
+            branch = bpkg._git_branch
         if conf_data_downloadonly:
             print("!alt-src", branch, bpkg)
             continue
@@ -762,6 +764,7 @@ def main():
 
     if not args: pass
     elif args[0] in ('force-push-module',):
+        import compose
         builds = []
         for arg in args[1:]:
             nsvc = arg.split(':')
@@ -782,7 +785,7 @@ def main():
             builds.append(ent)
 
         modules_to_track = set()
-        for build in tagged_builds:
+        for build in builds:
             modules_to_track.add(build['package_name'])
 
         unsynced_builds, extra_pkgs = check_unsynced_modules(kapi, builds,
