@@ -764,6 +764,10 @@ def main():
     elif args[0] in ('force-push-module',):
         builds = []
         for arg in args[1:]:
+            nsvc = arg.split(':')
+            if len(nsvc) != 4:
+                print(" ** Module format is traditional (N:S:V:C), not compatible (N-S-V.C)")
+                sys.exit(1)
             n, s, v, c = arg.split(':')
             mod = compose.Module()
             mod.name = n
