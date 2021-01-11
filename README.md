@@ -19,11 +19,23 @@ Usage:
 
 Other commands:
  * ./sync2git.py - Take packages from koji tag/compose and sync them to git.
+ * * ./sync2git.py force-push-module N:S:V:C - Push without checking CVE.
+ * * ./sync2git.py push - Push packages/modules to git (depending on options).
  * ./sync2build.py - Take packages from git and sync them to koji builds.
  * * ./sync2build.py packages
  * * ./sync2build.py modules
  * * ./sync2build.py check-nvr - Check a given NVR against git.
+ * * ./sync2build.py check-nvra - Check a given NVRA against git.
  * * ./sync2build.py build-nvr - Build a given NVR from git.
+ * * ./sync2build.py build-nvra - Build a given NVRA from git.
+ * * ./sync2build.py bpids-list - list koji build tasks
+ * * ./sync2build.py bpids-wait - wait for current koji build tasks
+ * * ./sync2build.py tag-rpms-hash - Give a hash for the tag, based on all rpms.
+ * * ./sync2build.py tag-srpms-hash - Give a hash for the tag, based on srpms.
+ * * ./sync2build.py summary-packages - ?
+ * * ./sync2build.py list-packages - ?
+ * * ./sync2build.py nvra-unsigned-packages - List packages which aren't signed.
+ * * ./sync2build.py list-unsigned-packages - List packages which aren't signed.
  * ./compose.py - Get data from a compose.
  * * ./compose.py &lt;compose-base-url>
  * ./access.py - Query CVE checker data
