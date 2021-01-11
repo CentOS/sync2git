@@ -457,24 +457,23 @@ def check_unsynced_modules(kapi, tagged_builds, modules_to_track):
 
     return unsynced_builds, extra_pkg_builds
 
-def check_cve_builds(tagged_builds):
+def check_cve_builds(pkgs):
     """
     Look for builds that aren't allowed and filter them
     """
     if not conf_filter_cve:
-        return tagged_builds
-    print("Checking CVEs for packages:", len(tagged_builds))
+        return pkgs
+    print("Checking CVEs for packages:", len(pkgs))
     sys.stdout.flush()
     import access
 
     reqs = {}
-    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
-        if build['nvr'] in reqs:
+    for bpkg in sorted(pkgs):
+        if bpkg.nvr in reqs:
             continue
 
-        n, v, r = build['nvr'].rsplit('-', 2)
-        req = access.NvrInfo(n, v, r)
-        reqs[build['nvr']] = req
+        req = access.NvrInfo(bpkg.name, bpkg.version, bpkg.release)
+        reqs[bpkg.nvr] = req
         #  Precache for speed, downside is it means once we get an allow
         # we stop querying.
         if not req.hist_precache():
@@ -482,16 +481,16 @@ def check_cve_builds(tagged_builds):
 
     # Now we look at the results and filter those that aren't allowed...
     allowed_builds = []
-    for build in sorted(tagged_builds, key=lambda x: x['package_name']):
-        if build['nvr'] not in reqs: # How did this happen?
-            print("Error Pkg: ", build['package_name'])
+    for bpkg in sorted(pkgs):
+        if bpkg.nvr not in reqs: # How did this happen?
+            print("Error Pkg: ", bpkg)
             continue
-        req = reqs[build['nvr']]
+        req = reqs[bpkg.nvr]
         if not req.allow():
             print("Filtered Pkg: ", req)
             sys.stdout.flush()
             continue
-        allowed_builds.append(build)
+        allowed_builds.append(bpkg)
     return allowed_builds
 
 def modbuild2mbsjson(build):
@@ -669,8 +668,8 @@ def sync_packages(tag, compose, kapi, packages_to_track, denylist=[]):
         bpkgs = composed_url2pkgs(compose)
         if __auto_compose_allowlist:
             packages_to_track = set()
-            for build in tagged_builds:
-                packages_to_track.add(build['package_name'])
+            for bpkg in bpkgs:
+                packages_to_track.add(bpkg.name)
     if __test_print_tagged:
         from pprint import pprint
         pprint(bpkgs)
