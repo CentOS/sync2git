@@ -89,6 +89,9 @@ def koji_pkgs2archsigs(kapi, pkgs):
     koji_archpkgs2sigs(kapi, ret)
     return ret
 
+def _task_state(info):
+    return koji.TASK_STATES[info['state']]
+
 def _pkg_koji_task_state(self):
     if not hasattr(self, '_cached_koji_task_state'):
         tinfo = self._kapi.getTaskInfo(self._koji_task_id)
