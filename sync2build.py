@@ -186,19 +186,43 @@ def koji_pkgs2archsigs(kapi, pkgs, filter=None):
     koji_archpkgs2sigs(kapi, ret)
     return ret
 
-def koji_tag2pkgs(kapi, tag, signed=False):
+def _pkg_koji_task_state(self):
+    if not hasattr(self, '_cached_koji_task_state'):
+        tinfo = self._kapi.getTaskInfo(self._koji_task_id)
+        # This overwrites the property call
+        self._cached_koji_task_state = _task_state(tinfo)
+        del self._kapi
+    return self._cached_koji_task_state
+# This is a hack, so we can continue to use spkg.Pkg() indirectly. Sigh.
+spkg.Pkg._koji_task_state = property(_pkg_koji_task_state)
+
+def _koji_buildinfo2pkg(kapi, binfo):
+    pkg = spkg.nvr2pkg(binfo['nvr'], epoch=binfo['epoch'])
+    pkg._koji_build_id = binfo['build_id']
+    if 'task_id' in binfo:
+        pkg._koji_task_id = binfo['task_id']
+        pkg._kapi = kapi
+    return pkg
+
+def koji_tag2pkgs(kapi, tag):
     """
-    Return a list of latest builds that are tagged with certain tag
+    Return a list of latest build packages that are tagged with certain tag
     """
     ret = []
     for rpminfo in kapi.listTagged(tag, inherit=True, latest=True):
-        pkg = spkg.nvr2pkg(rpminfo['nvr'], epoch=rpminfo['epoch'])
-        pkg._koji_build_id = rpminfo['build_id']
+        pkg = _koji_buildinfo2pkg(kapi, rpminfo)
         ret.append(pkg)
 
-    if signed:
-        ret = koji_pkgs2archsigs(kapi, ret)
+    return ret
 
+def koji_pkgid2pkgs(kapi, pkgid):
+    """
+    Return a the build pacakges from a package id
+    """
+    ret = []
+    for binfo in kapi.listBuilds(packageID=pkgid):
+        pkg = _koji_buildinfo2pkg(kapi, binfo)
+        ret.append(pkg)
     return ret
 
 # Stupid py3...
@@ -211,7 +235,8 @@ def koji_tag2checksum(kapi, tag, checksum='sha1'):
     """
 
     import hashlib
-    pkgs = koji_tag2pkgs(kapi, tag, signed=True)
+    pkgs = koji_tag2pkgs(kapi, tag)
+    pkgs = koji_pkgs2archsigs(kapi, pkgs)
 
     num = 0
     ret = hashlib.new(checksum)
@@ -230,7 +255,7 @@ def koji_tag2srpms_checksum(kapi, tag, checksum='sha1'):
     """
 
     import hashlib
-    pkgs = koji_tag2pkgs(kapi, tag, signed=False)
+    pkgs = koji_tag2pkgs(kapi, tag)
     pkgs = koji_pkgs2archsigs(kapi, pkgs, filter=lambda x: x.arch != 'src')
 
     num = 0
@@ -567,6 +592,11 @@ def sync_packages(tag, compose, kapi):
     bts = build_packages(kapi, bpkgs, tag)
     return bts
 
+def _build_done(state):
+    return state != 'BUILDING'
+def _build_state(info):
+    return koji.BUILD_STATES[info['state']]
+
 def _task_done(state):
     return state in ('CLOSED', 'CANCELED', 'FAILED')
 def _task_state(info):
@@ -850,7 +880,8 @@ def main():
                 if spkg._is_rebuild(bpkg):
                     suffix += '(rebuild)'
                 print(prefix, bpkg, suffix)
-        bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        bpkgs = koji_tag2pkgs(kapi, tag)
+        bpkgs = koji_pkgs2archsigs(kapi, bpkgs)
         lenmax = _slen(bpkgs) # Max size of printed num
         print("%*s | %*s | pkg" % (lenmax, "bids", 8, "build_id"))
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
@@ -866,7 +897,8 @@ def main():
                     if bpkg.signed:
                         continue
                 print(bpkg)
-        bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        bpkgs = koji_tag2pkgs(kapi, tag)
+        bpkgs = koji_pkgs2archsigs(kapi, bpkgs)
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
         sys.exit(0)
     elif args[0] in ('list-packages', 'list-pkgs', 'ls-pkgs'):
@@ -895,7 +927,8 @@ def main():
                 if spkg._is_rebuild(bpkg):
                     suffix += '(rebuild)'
                 print(prefix, bpkg, suffix)
-        bpkgs = koji_tag2pkgs(kapi, tag, signed=True)
+        bpkgs = koji_tag2pkgs(kapi, tag)
+        bpkgs = koji_pkgs2archsigs(kapi, bpkgs)
         _out_pkg("Tag:", spkg.match_pkgs(args, bpkgs))
         if comp is not None:
             cpkgs = composed_url2pkgs(comp)
@@ -966,6 +999,7 @@ def main():
                 else:
                     print(prefix, "!!:", bpkg, suffix)
         bpkgs = koji_tag2pkgs(kapi, tag)
+        bpkgs = koji_pkgs2archsigs(kapi, bpkgs)
         _out_pkg("Tag:", bpkg, bpkgs, signed=True)
         if comp is not None:
             cpkgs = composed_url2pkgs(comp)
@@ -1017,6 +1051,14 @@ def main():
             for bt in dbts: # Keep everything around for logs
                 bts.append(bt)
             bpids_save(bts)
+
+        sys.exit(0)
+
+    elif args[0] in ('build-n', 'build-name'):
+        pkgid = kapi.getPackageID(args[1])
+        pkgs = koji_pkgid2pkgs(kapi, pkgid)
+        for pkg in sorted(pkgs):
+            print(pkg, pkg._koji_task_state, pkg._koji_build_id)
 
         sys.exit(0)
 
