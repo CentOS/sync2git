@@ -89,22 +89,51 @@ def koji_pkgs2archsigs(kapi, pkgs):
     koji_archpkgs2sigs(kapi, ret)
     return ret
 
-def koji_tag2pkgs(kapi, tag, signed=False):
+def _pkg_koji_task_state(self):
+    if not hasattr(self, '_cached_koji_task_state'):
+        tinfo = self._kapi.getTaskInfo(self._koji_task_id)
+        # This overwrites the property call
+        self._cached_koji_task_state = _task_state(tinfo)
+        del self._kapi
+    return self._cached_koji_task_state
+# This is a hack, so we can continue to use spkg.Pkg() indirectly. Sigh.
+spkg.Pkg._koji_task_state = property(_pkg_koji_task_state)
+
+def _koji_buildinfo2pkg(kapi, binfo):
+    pkg = spkg.nvr2pkg(binfo['nvr'], epoch=binfo['epoch'])
+    pkg._koji_build_id = binfo['build_id']
+    if 'task_id' in binfo:
+        pkg._koji_task_id = binfo['task_id']
+        pkg._kapi = kapi
+    return pkg
+
+def koji_tag2pkgs(kapi, tag):
     """
-    Return a list of latest builds that are tagged with certain tag
+    Return a list of latest build packages that are tagged with certain tag
     """
     ret = []
-    for rpminfo in kapi.listTagged(tag, latest=True):
-        pkg = spkg.nvr2pkg(rpminfo['nvr'])
-        if rpminfo['epoch'] is not None:
-            pkg.epoch = str(rpminfo['epoch'])
-        pkg._koji_build_id = rpminfo['build_id']
+    for rpminfo in kapi.listTagged(tag, inherit=True, latest=True):
+        pkg = _koji_buildinfo2pkg(kapi, rpminfo)
         ret.append(pkg)
 
-    if signed:
-        ret = koji_pkgs2archsigs(kapi, ret)
-
     return ret
+
+def koji_pkgid2pkgs(kapi, pkgid):
+    """
+    Return a the build pacakges from a package id
+    """
+    ret = []
+    for binfo in kapi.listBuilds(packageID=pkgid):
+        pkg = _koji_buildinfo2pkg(kapi, binfo)
+        ret.append(pkg)
+    return ret
+
+def _koji_pkg2task_state(kapi, pkg):
+    pkgid = kapi.getPackageID(pkg.name)
+    for ppkg in koji_pkgid2pkgs(kapi, pkgid):
+        if ppkg == pkg:
+            return ppkg._koji_task_state
+    return 'NONE'
 
 def composed_url2pkgs(baseurl):
     """
@@ -257,7 +286,35 @@ h1,h2,h3,h4,h5,h6 {
 }
 .table-row.need_build {
     background: lightgreen;
+}
+.table-row.need_build_free {
+    background: lightgreen;
     text-decoration: overline;
+}
+.table-row.need_build_open {
+    background: lightgreen;
+    text-decoration: overline;
+}
+.table-row.need_build_closed {
+    background: lightred;
+    text-decoration: overline;
+}
+.table-row.need_build_canceled {
+    background: red;
+    text-decoration: overline;
+}
+.table-row.need_build_assigned {
+    background: lightgreen;
+    text-decoration: overline;
+}
+.table-row.need_build_failed {
+    background: red;
+}
+.table-row.need_build_unknown {
+    background: red;
+}
+.table-row.need_build_manual {
+    background: red;
 }
 .table-row.need_push {
     background: lightgreen;
@@ -417,13 +474,50 @@ def html_row(fo, *args, **kwargs):
 	</tr>
 """)
 
-def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
-              prefix=None):
+# Key:
+#  cpkg == compose package
+#  bpkg == koji build tag package
+#  tpkg == git tag package
+def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
+              filter_pushed=False, filter_signed=False, prefix=None):
 
     def _html_row(status, **kwargs):
         note = bpkg._html_note
         note = note or cpkg._html_note
         note = note or ""
+
+        # Kind of hacky, but eh...
+        if kwargs['lc'] == "need_build":
+            state = _koji_pkg2task_state(kapi, cpkg)
+            if False: pass
+            elif state == 'NONE':
+                pass # No build yet
+            elif state == 'FREE':
+                kwargs['lc'] = "need_build_free"
+            elif state == 'OPEN':
+                kwargs['lc'] = "need_build_open"
+            elif state == 'CLOSED':
+                kwargs['lc'] = "need_build_closed"
+            elif state == 'CANCELED':
+                kwargs['lc'] = "need_build_canceled"
+            elif state == 'ASSIGNED':
+                kwargs['lc'] = "need_build_assigned"
+            elif state == 'FAILED':
+                kwargs['lc'] = "need_build_failed"
+            else:
+                kwargs['lc'] = "need_build_unknown"
+
+            if not note: # Auto notes based on auto filtering...
+                if spkg._is_rebuild(cpkg):
+                    note = "Rebuild"
+                if spkg._is_branch_el8(cpkg):
+                    note = "Branch"
+                if spkg._is_module(cpkg):
+                    note = "Module"
+                if note:
+                    if kwargs['lc'] == "need_build":
+                        kwargs['lc'] = "need_build_manual"
+
         html_row(fo, cpkg, status, note, **kwargs)
 
     fo.write(html_header)
@@ -461,11 +555,11 @@ def html_main(fo, cpkgs,cbpkgs, bpkgs, filter_pushed=False, filter_signed=False,
             links = {cpkg : weburl}
             if cpkg == bpkg:
                 if not filter_signed and not bpkg.signed:
-                    _html_row("pushed not signed", lc="need_signing",
+                    _html_row("built not signed", lc="need_signing",
                               links=links)
                     stats['sign'] += 1
                 elif not filter_pushed:
-                    _html_row("pushed and signed", lc="done", links=links)
+                    _html_row("built and signed", lc="done", links=links)
                     stats['done'] += 1
                 continue
             if cpkg < bpkg:
@@ -573,16 +667,17 @@ def main():
     load_package_denylist()
 
     cpkgs, cbpkgs, cid, cstat = composed_url2pkgs(options.packages_compose)
-    bpkgs = koji_tag2pkgs(tkapi, options.packages_tag, True)
+    bpkgs = koji_tag2pkgs(tkapi, options.packages_tag)
+    bpkgs = koji_pkgs2archsigs(tkapi, bpkgs)
 
     read_notes(options.notes, bpkgs)
     read_notes(options.notes, cpkgs)
 
     if not args: pass
     elif args[0] in ('packages', 'pkgs'):
-        html_main(sys.stdout, cpkgs, cbpkgs, bpkgs)
+        html_main(tkapi, sys.stdout, cpkgs, cbpkgs, bpkgs)
     elif args[0] in ('filtered-packages', 'filtered-pkgs', 'filt-pkgs'):
-        html_main(sys.stdout, cpkgs, cbpkgs, bpkgs, filter_pushed=True)
+        html_main(tkapi, sys.stdout, cpkgs, cbpkgs, bpkgs, filter_pushed=True)
     elif args[0] in ('output-files',):
         print("Compose:", cid, cstat)
 
@@ -600,7 +695,7 @@ def main():
         pkghtml %= (options.packages_tag, len(sbpkgs), len(bpkgs))
         prehtml += pkghtml
         pre = lambda x: x.write(prehtml)
-        stats = html_main(fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
+        stats = html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
 
         fo = open("filt-packages.html", "w")
         prehtml = '<h2><a href="all-packages.html">Filtered</a> packages: ' +  cid
@@ -613,7 +708,7 @@ def main():
             prehtml += pkghtml
 
         pre = lambda x: x.write(prehtml)
-        html_main(fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True, prefix=pre)
+        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True, prefix=pre)
     else:
         print("Args: filtereed-packages | packages")
 
