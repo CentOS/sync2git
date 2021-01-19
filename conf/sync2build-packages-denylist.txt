@@ -4,7 +4,8 @@ anaconda
 basesystem
 chrony
 dhcp
-dnf
+# Removed 2021-01-19
+# dnf
 firefox
 gflags
 glusterfs
