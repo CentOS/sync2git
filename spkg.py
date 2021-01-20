@@ -16,9 +16,9 @@ class Pkg(object):
         if arch is None:
             arch = 'src'
         self.arch = str(arch)
-        if epoch is None:
-            epoch = '0'
-        self.epoch = str(epoch)
+
+        # Magic property, see below
+        self.epoch = epoch
 
     def __str__(self):
         return self.ui_nevra
@@ -69,8 +69,29 @@ class Pkg(object):
     def __le__(self, o):
         return not self.__gt__(o)
 
+    # This is slightly different to rpm and/or koji.
+    #  In rpm epoch=None is the same as epoch='0' for testing, but in theory
+    # you can see the difference.
+    #  In koji roughly follows rpm (not sure if it converts epoch='0' or
+    # just treats them the same internally, as rpm does).
+    #  For spkg.Pkg() epoch=None means don't compare epochs ... this is because
+    # we have situtations where we don't get epochs
+    @property
+    def epoch(self):
+        if self.__epoch is None:
+            return '0'
+        return self.__epoch
+
+    @epoch.setter
+    def epoch(self, epoch):
+        if epoch is not None:
+            epoch = str(epoch)
+        self.__epoch = epoch
+
     def verCMP(self, o): # Old yum API name, eh.
-        val = rpmvercmp(self.epoch, o.epoch) # Should just be ints, but eh
+        val = 0
+        if self.__epoch is not None and o.__epoch is not None:
+            val = rpmvercmp(self.epoch, o.epoch) # Should just be ints, but eh
         if val != 0:
             return val
         val = rpmvercmp(self.version, o.version)
@@ -176,11 +197,15 @@ class Pkg(object):
     def vra(self):
         return '%s-%s.%s' % (self.version, self.release, self.arch)
 
-# Koji API likes to represent epoch this way, sigh.
-def koji_epochnum(pkg):
-    if pkg.epoch == '0': # Bad compat, sigh
+# Koji API likes to represent epoch with ints and None if rpm has None, sigh.
+def epochnum2epoch(epochnum):
+    if epochnum is None:
+        return '0'
+    return str(epochnum)
+def epoch2epochnum(epoch):
+    if epoch == '0': # Bad, sigh. Sometimes, but not often, actually int('0')
         return None
-    return int(pkg.epoch)
+    return int(epoch)
 
 
 def nvr2pkg(nvr, arch=None, epoch=None):
