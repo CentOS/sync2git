@@ -492,25 +492,32 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
         # Kind of hacky, but eh...
         if kwargs['lc'] == "need_build":
             tid, state = _koji_pkg2task_state(kapi, cpkg)
+            tnote = ""
             if False: pass
             elif state == 'NONE':
                 pass # No build yet
             elif state == 'FREE':
                 kwargs['lc'] = "need_build_free"
+                tnote = "Task (%d) is %s" % (tid, state)
             elif state == 'OPEN':
                 kwargs['lc'] = "need_build_open"
+                tnote = "Task (%d) is %s" % (tid, state)
             elif state == 'CLOSED':
                 kwargs['lc'] = "need_build_closed"
+                tnote = "Task (%d) has %s" % (tid, state)
             elif state == 'CANCELED':
                 kwargs['lc'] = "need_build_canceled"
+                tnote = "Task (%d) was %s" % (tid, state)
             elif state == 'ASSIGNED':
                 kwargs['lc'] = "need_build_assigned"
+                tnote = "Task (%d) is %s" % (tid, state)
             elif state == 'FAILED':
                 kwargs['lc'] = "need_build_failed"
+                tnote = "Task (%d) has %s" % (tid, state)
             else:
                 kwargs['lc'] = "need_build_unknown"
 
-            if tid is not None:
+            if tid is not None: # A Build has happened.
                 if 'links' not in kwargs:
                     kwargs['links'] = {}
                 weburl = "https://koji.mbox.centos.org/koji/"
@@ -519,11 +526,13 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
                 kwargs['links'][cpkg] = weburl
 
             if not note: # Auto notes based on auto filtering...
-                if spkg._is_rebuild(cpkg):
+                if tnote:
+                    note = tnote
+                elif spkg._is_rebuild(cpkg):
                     note = "Rebuild"
-                if spkg._is_branch_el8(cpkg):
+                elif spkg._is_branch_el8(cpkg):
                     note = "Branch"
-                if spkg._is_module(cpkg):
+                elif spkg._is_module(cpkg):
                     note = "Module"
                 if note:
                     if kwargs['lc'] == "need_build":
