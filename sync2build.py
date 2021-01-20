@@ -176,7 +176,8 @@ def koji_pkgs2archsigs(kapi, pkgs, filter=None):
     results = kapi.multiCall()
     for ([rpms], bpkg) in zip(results, pkgs):
         for rpm in rpms:
-            pkg = spkg.nvr2pkg(rpm['nvr'], arch=rpm['arch'], epoch=rpm['epoch'])
+            epoch = spkg.epochnum2epoch(rpm['epoch'])
+            pkg = spkg.nvr2pkg(rpm['nvr'], arch=rpm['arch'], epoch=epoch)
             pkg._koji_rpm_id = rpm['id']
             pkg._koji_build_id = bpkg._koji_build_id
             if filter(pkg):
@@ -197,7 +198,8 @@ def _pkg_koji_task_state(self):
 spkg.Pkg._koji_task_state = property(_pkg_koji_task_state)
 
 def _koji_buildinfo2pkg(kapi, binfo):
-    pkg = spkg.nvr2pkg(binfo['nvr'], epoch=binfo['epoch'])
+    epoch = spkg.epochnum2epoch(binfo['epoch'])
+    pkg = spkg.nvr2pkg(binfo['nvr'], epoch=epoch)
     pkg._koji_build_id = binfo['build_id']
     if 'task_id' in binfo:
         pkg._koji_task_id = binfo['task_id']
