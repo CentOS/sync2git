@@ -135,8 +135,8 @@ def _koji_pkg2task_state(kapi, pkg):
     pkgid = kapi.getPackageID(pkg.name)
     for ppkg in koji_pkgid2pkgs(kapi, pkgid):
         if ppkg == pkg:
-            return ppkg._koji_task_state
-    return 'NONE'
+            return ppkg._koji_task_id, ppkg._koji_task_state
+    return None, 'NONE'
 
 def composed_url2pkgs(baseurl):
     """
@@ -491,7 +491,7 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
 
         # Kind of hacky, but eh...
         if kwargs['lc'] == "need_build":
-            state = _koji_pkg2task_state(kapi, cpkg)
+            tid, state = _koji_pkg2task_state(kapi, cpkg)
             if False: pass
             elif state == 'NONE':
                 pass # No build yet
@@ -509,6 +509,14 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
                 kwargs['lc'] = "need_build_failed"
             else:
                 kwargs['lc'] = "need_build_unknown"
+
+            if tid is not None:
+                if 'links' not in kwargs:
+                    kwargs['links'] = {}
+                weburl = "https://koji.mbox.centos.org/koji/"
+                weburl += "taskinfo?taskID=%d"
+                weburl %= tid
+                kwargs['links'][cpkg] = weburl
 
             if not note: # Auto notes based on auto filtering...
                 if spkg._is_rebuild(cpkg):
