@@ -701,33 +701,39 @@ def main():
     elif args[0] in ('output-files',):
         print("Compose:", cid, cstat)
 
-        tmhtml = '<h3> Generated:'
-        tmhtml += time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+        # We end up creating stats. inside html generation, so write to
+        # /dev/null to collect them first. Sigh.
+        fo = open("/dev/null", "w")
+        stats = html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False)
+
+        def _prefix(prehtml):
+            tmhtml = '<h3> Generated:'
+            tmhtml += time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+            prehtml += tmhtml
+            pkghtml = '<p>RHEL Packages: %d (%d bin packages)'
+            pkghtml %= (len(cpkgs), len(cbpkgs))
+            prehtml += pkghtml
+            sbpkgs = [x for x in bpkgs if x.arch == 'src']
+            pkghtml = '<p>%s Packages: %d (%d bin packages)'
+            pkghtml %= (options.packages_tag, len(sbpkgs), len(bpkgs))
+            prehtml += pkghtml
+            for stat in sorted(stats):
+                if stats[stat] == 0:
+                    continue
+                pkghtml = '<p>%s Packages: %d'
+                pkghtml %= (stat, stats[stat])
+                prehtml += pkghtml
+            pre = lambda x: x.write(prehtml)
+            return pre
 
         fo = open("all-packages.html", "w")
         prehtml = '<h2><a href="filt-packages.html">All</a> packages: ' +  cid
-        prehtml += tmhtml
-        pkghtml = '<p>RHEL Packages: %d (%d bin packages)'
-        pkghtml %= (len(cpkgs), len(cbpkgs))
-        prehtml += pkghtml
-        sbpkgs = [x for x in bpkgs if x.arch == 'src']
-        pkghtml = '<p>%s Packages: %d (%d bin packages)'
-        pkghtml %= (options.packages_tag, len(sbpkgs), len(bpkgs))
-        prehtml += pkghtml
-        pre = lambda x: x.write(prehtml)
-        stats = html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
+        pre = _prefix(prehtml)
+        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
 
         fo = open("filt-packages.html", "w")
         prehtml = '<h2><a href="all-packages.html">Filtered</a> packages: ' +  cid
-        prehtml += tmhtml
-        for stat in sorted(stats):
-            if stats[stat] == 0:
-                continue
-            pkghtml = '<p>%s Packages: %d'
-            pkghtml %= (stat, stats[stat])
-            prehtml += pkghtml
-
-        pre = lambda x: x.write(prehtml)
+        pre = _prefix(prehtml)
         html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True, prefix=pre)
     else:
         print("Args: filtereed-packages | packages")
