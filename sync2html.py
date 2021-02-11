@@ -605,7 +605,7 @@ def main():
             tmhtml = '<h3> Generated:'
             tmhtml += time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
             prehtml += tmhtml
-            pkghtml = '''<table style="width: 60%;">
+            pkghtml = '''<table style="width: 60%%;">
             <thead><tr>
             <th>From</th>
             <th>Source Pkgs</th>
