@@ -208,26 +208,24 @@ def _tags2pkgs(tags):
 
     return tpkgs
 
-# See: https://codepen.io/nathancockerill/pen/OQyXWb
+# See: https://www.datatables.net
 html_header = """\
     <html>
         <head>
+   <script
+      src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+      integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+      crossorigin="anonymous">
+    </script>
+    
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"></script>
+
         <link rel="dns-prefetch" href="https://fonts.googleapis.com">
             <style>
 @import url('https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700');
 
-$base-spacing-unit: 24px;
-$half-spacing-unit: $base-spacing-unit / 2;
-
-$color-alpha: #1772FF;
-$color-form-highlight: #EEEEEE;
-
-*, *:before, *:after {
-	box-sizing:border-box;
-}
-
 body {
-	padding:$base-spacing-unit;
 	font-family:'Source Sans Pro', sans-serif;
 	margin:0;
 }
@@ -236,222 +234,116 @@ h1,h2,h3,h4,h5,h6 {
 	margin:0;
 }
 
-.container {
-	max-width: 1000px;
-	margin-right:auto;
-	margin-left:auto;
-	/* display:flex; */
-	/* justify-content:center; */
-	/* align-items:center; */
-	min-height:100vh;
-}
 
-.table {
-	width:100%;
-	border:1px solid $color-form-highlight;
-}
-
-.table-header {
-	/* display:flex; */
-	width:100%;
-	background:#000;
-	padding:($half-spacing-unit * 1.5) 0;
-}
-
-.table-row {
-	/* display:flex; */
-	width:100%;
-	padding:($half-spacing-unit * 1.5) 0;
-	
-	&:nth-of-type(odd) {
-		background:$color-form-highlight;
-	}
-}
-
-.table-row.denied {
-    background: orange;
+.denied {
+    background: orange !important;
     text-decoration: line-through;
 }
-.table-row.error {
-    background: red;
+.error {
+    background: red !important;
 }
-.table-row.older {
-    background: orange;
+.older {
+    background: orange !important;
     text-decoration: overline;
 }
-.table-row.done {
-}
-.table-row.nobuild {
-    background: lightgrey;
-}
-.table-row.missing {
-    background: lightgrey;
-}
-.table-row.need_build {
-    background: lightgreen;
-}
-.table-row.need_build_free {
-    background: lightgreen;
+.oldtag {
+    background: orange !important;
     text-decoration: overline;
 }
-.table-row.need_build_open {
-    background: lightgreen;
+.done {
+}
+.nobuild {
+    background: lightgrey !important;
+}
+.missing {
+    background: lightgrey !important;
+}
+.need_build {
+    background: lightgreen !important;
+}
+.need_build_free {
+    background: lightgreen !important;
     text-decoration: overline;
 }
-.table-row.need_build_closed {
-    background: lightred;
+.need_build_open {
+    background: lightgreen !important;
     text-decoration: overline;
 }
-.table-row.need_build_canceled {
-    background: red;
+.need_build_closed {
+    background: lightred !important;
     text-decoration: overline;
 }
-.table-row.need_build_assigned {
-    background: lightgreen;
+.need_build_canceled {
+    background: red !important;
     text-decoration: overline;
 }
-.table-row.need_build_failed {
-    background: red;
+.need_build_assigned {
+    background: lightgreen !important;
+    text-decoration: overline;
 }
-.table-row.need_build_unknown {
-    background: red;
+.need_build_failed {
+    background: red !important;
 }
-.table-row.need_build_manual {
-    background: red;
+.need_build_unknown {
+    background: red !important;
 }
-.table-row.need_push {
+.need_build_manual {
+    background: red !important;
+}
+.push {
     background: lightgreen;
     text-decoration: underline;
 }
-.table-row.need_signing {
-    background: yellow;
+.sign {
+    background: yellow !important;
 }
-.table-row.extra {
-    background: lightblue;
-}
-
-.table-data, .header__item {
-	/* flex: 1 1 20%; */
-	text-align: left;
+.extra {
+    background: lightblue !important;
 }
 
-.header__item {
-	text-transform: uppercase;
-}
-
-.filter__link {
-	color: white;
-	text-decoration: none;
-	position: relative;
-	display: inline-block;
-	padding-left: 24px;
-	padding-right: 24px;
-}
-.filter__link::after {
-		content: '';
-		position: absolute;
-		color: white;
-		right: -18px;
-		font-size: 12px;
-		top: 50%;
-		transform: translateY(-50%);
-}
-	
-.filter__link.desc::after {
-		content: '(desc)';
-}
-
-.filter__link.asc::after {
-		content: '(asc)';
-}
             </style>
         </head>
         <body>
         <a href="unsigned-packages.txt">unsigned nvra</a> <br>
 """
 
-# filter__link--number for build ids?
+# Again See: https://www.datatables.net
 
 html_table = """\
-        <table class="table">
-		<tr class="table-header">
-			<td class="header__item"><a id="packages" class="filter__link" href="#">Packages</a></td>
-			<td class="header__item"><a id="status" class="filter__link" href="#">Status</a></td>
-			<td class="header__item"><a id="note" class="filter__link" href="#">Note</a></td>
+        <table id="pkgdata" style="compact">
+        <thead>
+		<tr>
+			<th>_cStatus</th>
+			<th>Packages</th>
+			<th>Status</th>
+			<th>Note</th>
 		</tr>
+        </thead>
+        <tbody>
 """
 
 html_footer = """\
+        </tbody>
 		</table>
-          <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
-          <script id="rendered-js">
-var properties = [
-	'packages',
-	'status',
-	'note',
-];
-
-$.each( properties, function( i, val ) {
-	
-	var orderClass = '';
-
-	$("#" + val).click(function(e){
-		e.preventDefault();
-		$('.filter__link.filter__link--active').not(this).removeClass('filter__link--active');
-  		$(this).toggleClass('filter__link--active');
-   		$('.filter__link').removeClass('asc desc');
-
-   		if(orderClass == 'desc' || orderClass == '') {
-    			$(this).addClass('asc');
-    			orderClass = 'asc';
-       	} else {
-       		$(this).addClass('desc');
-       		orderClass = 'desc';
-       	}
-
-		var parent = $(this).closest('.header__item');
-    		var index = $(".header__item").index(parent);
-		var $table = $('.table');
-		var rows = $table.find('.table-row').get();
-		var isSelected = $(this).hasClass('filter__link--active');
-		var isNumber = $(this).hasClass('filter__link--number');
-			
-		rows.sort(function(a, b){
-
-			var x = $(a).find('.table-data').eq(index).text();
-    			var y = $(b).find('.table-data').eq(index).text();
-				
-			if(isNumber == true) {
-    					
-				if(isSelected) {
-					return x - y;
-				} else {
-					return y - x;
-				}
-
-			} else {
-			
-				if(isSelected) {		
-					if(x < y) return -1;
-					if(x > y) return 1;
-					return 0;
-				} else {
-					if(x > y) return -1;
-					if(x < y) return 1;
-					return 0;
-				}
-			}
-    		});
-
-		$.each(rows, function(index,row) {
-			$table.append(row);
-		});
-
-		return false;
-	});
-
-});
-            </script>
+        <script>
+        $(document).ready(
+            function() {
+                $('#pkgdata').DataTable(
+                    {
+                        "paging" : false,
+                        "columnDefs": [{
+                            "targets" : [0],
+                            "visible" : false
+                        }],
+                        "createdRow" : function(row, data, dataIndex) {
+                            $(row).addClass(data[0]);
+                        },
+                        "order": [[ 1, "asc" ]]
+                    }
+                );
+            }
+        );
+        </script>
         </body>
     </html>
 """
@@ -460,18 +352,16 @@ def html_row(fo, *args, **kwargs):
     lc = kwargs.get('lc')
     if lc is None:
         lc = ''
-    else:
-        lc = " " + str(lc)
     links = kwargs.get('links', {})
 
     fo.write("""\
-    <tr class="table-row%s">
+    <tr> <td>%s</td>
 """ % (lc,))
     for arg in args:
         if arg in links:
             arg = '<a href="%s">%s</a>' % (links[arg], arg)
         fo.write("""\
-		<td class="table-data">%s</td>
+		<td>%s</td>
 """ % (arg,))
     fo.write("""\
 	</tr>
@@ -516,6 +406,10 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
                 tnote = "Task (%d) has %s" % (tid, state)
             else:
                 kwargs['lc'] = "need_build_unknown"
+            if kwargs['lc'] != "need_build":
+                if kwargs['lc'] not in stats:
+                    stats[kwargs['lc']] = 0
+                stats[kwargs['lc']] += 1
 
             if tid is not None: # A Build has happened.
                 if 'links' not in kwargs:
@@ -553,9 +447,9 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
     corootdir = tcoroot.name + '/'
 
     fo.write(html_table)
-    stats = {'sign' : 0, 'done' : 0, 'push' : 0, 'build' : 0, 'denied' : 0,
-             'missing' : 0, 'extra' : 0, 'git-old' : 0, 'tag-old' : 0,
-             'error' : 0}
+    stats = {'sign' : 0, 'done' : 0, 'push' : 0, 'need_build' : 0, 'denied' : 0,
+             'missing' : 0, 'extra' : 0, 'older' : 0, 'oldtag' : 0,
+             'nobuild' : 0, 'error' : 0}
     for cpkg in sorted(cpkgs):
         denied = ml_pkgdeny.nvr(cpkg.name, cpkg.version, cpkg.release)
 
@@ -575,7 +469,7 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
             links = {cpkg : weburl}
             if cpkg == bpkg:
                 if not filter_signed and not bpkg.signed:
-                    _html_row("built not signed", lc="need_signing",
+                    _html_row("built not signed", lc="sign",
                               links=links)
                     stats['sign'] += 1
                 elif not filter_pushed:
@@ -583,9 +477,9 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
                     stats['done'] += 1
                 continue
             if cpkg < bpkg:
-                _html_row("OLDER than build: " + str(bpkg), lc="older",
+                _html_row("OLDER than build: " + str(bpkg), lc="oldtag",
                           links=links)
-                stats['tag-old'] += 1
+                stats['oldtag'] += 1
                 continue
             if cpkg > bpkg:
                 if denied:
@@ -609,17 +503,18 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
             # This is the newest version in git...
             if cpkg < tpkg:
                 _html_row("OLDER than git: " + str(tpkg), lc="older")
-                stats['git-old'] += 1
+                stats['older'] += 1
                 continue # See if the next oldest is ==
             if cpkg == tpkg:
                 if cpkg == bpkg:
                     _html_row("No BUILD", lc="nobuild")
+                    stats['nobuild'] += 1
                 else:
                     _html_row("BUILD needed, latest build: " + str(bpkg), lc="need_build")
-                stats['build'] += 1
+                    stats['need_build'] += 1
                 break
             if cpkg > tpkg:
-                _html_row("PUSH needed, latest git: " + str(tpkg), lc="need_push")
+                _html_row("PUSH needed, latest git: " + str(tpkg), lc="push")
                 stats['push'] += 1
                 break
 
@@ -627,7 +522,7 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
             stats['error'] += 1
         if not found:
             _html_row("Missing from git", lc="missing")
-            stats['push'] += 1
+            stats['missing'] += 1
 
     if False:
         # Comparing a compose to a tag gives way too many extras...
@@ -710,19 +605,35 @@ def main():
             tmhtml = '<h3> Generated:'
             tmhtml += time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
             prehtml += tmhtml
-            pkghtml = '<p>RHEL Packages: %d (%d bin packages)'
+            pkghtml = '''<table style="width: 60%;">
+            <thead><tr>
+            <th>From</th>
+            <th>Source Pkgs</th>
+            <th>Binary Pkgs</th>
+            </tr></thead>
+            <tbody>
+            <tr><td>RHEL</td><td>%d</td><td>%d</td></tr>
+'''
             pkghtml %= (len(cpkgs), len(cbpkgs))
             prehtml += pkghtml
+
             sbpkgs = [x for x in bpkgs if x.arch == 'src']
-            pkghtml = '<p>%s Packages: %d (%d bin packages)'
+            pkghtml = '''
+            <tr><td>%s</td><td>%d</td><td>%d</td></tr>
+            </tbody>
+            </table>
+'''
             pkghtml %= (options.packages_tag, len(sbpkgs), len(bpkgs))
             prehtml += pkghtml
+
+            prehtml += '<table><tr>'
             for stat in sorted(stats):
                 if stats[stat] == 0:
                     continue
-                pkghtml = '<p>%s Packages: %d'
-                pkghtml %= (stat, stats[stat])
+                pkghtml = '<td class="%s">%s Pkgs: %d</td>'
+                pkghtml %= (stat, stat, stats[stat])
                 prehtml += pkghtml
+            prehtml += '</tr></table>'
             pre = lambda x: x.write(prehtml)
             return pre
 
