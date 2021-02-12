@@ -234,6 +234,9 @@ h1,h2,h3,h4,h5,h6 {
 	margin:0;
 }
 
+td.dtclass {
+  display: none;
+}
 
 .denied {
     background: orange !important;
@@ -354,9 +357,10 @@ def html_row(fo, *args, **kwargs):
         lc = ''
     links = kwargs.get('links', {})
 
+    # Want this to do nice things both with and without JS.
     fo.write("""\
-    <tr> <td>%s</td>
-""" % (lc,))
+    <tr class="%s"> <td class="dtclass">%s</td>
+""" % (lc,lc))
     for arg in args:
         if arg in links:
             arg = '<a href="%s">%s</a>' % (links[arg], arg)
