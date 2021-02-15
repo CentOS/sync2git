@@ -212,6 +212,7 @@ def _tags2pkgs(tags):
 html_header = """\
     <html>
         <head>
+   <title>%s</title>
    <script
       src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
       integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
@@ -376,7 +377,7 @@ def html_row(fo, *args, **kwargs):
 #  bpkg == koji build tag package
 #  tpkg == git tag package
 def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
-              filter_pushed=False, filter_signed=False, prefix=None):
+              filter_pushed=False, filter_signed=False):
 
     def _html_row(status, **kwargs):
         note = bpkg._html_note
@@ -437,11 +438,6 @@ def html_main(kapi, fo, cpkgs,cbpkgs, bpkgs,
                         kwargs['lc'] = "need_build_manual"
 
         html_row(fo, cpkg, status, note, **kwargs)
-
-    fo.write(html_header)
-
-    if prefix:
-        prefix(fo)
 
     pushed = {}
     for bpkg in bpkgs:
@@ -594,8 +590,10 @@ def main():
 
     if not args: pass
     elif args[0] in ('packages', 'pkgs'):
+        fo.write(html_header % ('All packages: ' + cid,))
         html_main(tkapi, sys.stdout, cpkgs, cbpkgs, bpkgs)
     elif args[0] in ('filtered-packages', 'filtered-pkgs', 'filt-pkgs'):
+        fo.write(html_header % ('Filtered packages: ' + cid,))
         html_main(tkapi, sys.stdout, cpkgs, cbpkgs, bpkgs, filter_pushed=True)
     elif args[0] in ('output-files',):
         print("Compose:", cid, cstat)
@@ -638,18 +636,20 @@ def main():
                 pkghtml %= (stat, stat, stats[stat])
                 prehtml += pkghtml
             prehtml += '</tr></table>'
-            pre = lambda x: x.write(prehtml)
-            return pre
+            return prehtml
 
         fo = open("all-packages.html", "w")
         prehtml = '<h2><a href="filt-packages.html">All</a> packages: ' +  cid
-        pre = _prefix(prehtml)
-        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False, prefix=pre)
+
+        fo.write(html_header % ('All packages: ' + cid,))
+        fo.write(_prefix(prehtml))
+        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=False)
 
         fo = open("filt-packages.html", "w")
         prehtml = '<h2><a href="all-packages.html">Filtered</a> packages: ' +  cid
-        pre = _prefix(prehtml)
-        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True, prefix=pre)
+        fo.write(html_header % ('Filtered packages: ' + cid,))
+        fo.write(_prefix(prehtml))
+        html_main(tkapi, fo, cpkgs, cbpkgs, bpkgs, filter_pushed=True)
     else:
         print("Args: filtereed-packages | packages")
 
