@@ -235,7 +235,7 @@ h1,h2,h3,h4,h5,h6 {
 	margin:0;
 }
 
-td.dtclass {
+td.dtclass, th.dtclass {
   display: none;
 }
 
@@ -317,7 +317,7 @@ html_table = """\
         <table id="pkgdata" style="compact">
         <thead>
 		<tr>
-			<th>_cStatus</th>
+			<th class="dtclass">_cStatus</th>
 			<th>Packages</th>
 			<th>Status</th>
 			<th>Note</th>
