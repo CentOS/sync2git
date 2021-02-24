@@ -1,41 +1,50 @@
-# Packages that we don't auto build, Eg. branding problems.
+# Packages that we don't auto build
+
+# Branding
 abrt
 anaconda
-basesystem
-chrony
-dhcp
-# Removed 2021-01-19
-# dnf
 firefox
-gflags
-glusterfs
 gnome-settings-daemon
-gnu-efi
-groff
-initial-setup
 libreport
-PackageKit
-plymouth
 redhat-rpm-config
 subscription-manager
 thunderbird
-wget
-# Currently ignore the weird gcc-toolset/scl packages...
+
+# SCL
 gcc-toolset-9*
 gcc-toolset-10*
-# 2020-07-28 kernel additions...
-kernel
-kernel-rt
-kexec-tools
-kmod*
-# Secureboot stuff...
+
+# Secureboot
 fwupd
 fwupdate
 grub2
 kernel
 kernel-rt
+kmod*
 shim
 shim-unsigned-aarch64
 shim-unsigned-x64
-# Vulkan?
-vulkan-*
+
+# ExclusiveArch s390x
+s390utils
+libica
+qclib
+libzfcphbaapi
+openssl-ibmca
+
+# Do not ship
+compat-locales-sap
+compat-sap-c++-9
+compat-sap-c++-10
+insights-client
+redhat-bookmarks
+redhat-indexhtml
+redhat-logos
+redhat-release
+resource-agents-sap
+resource-agents-sap-hana
+resource-agents-sap-hana-scaleout
+rhc
+rhc-worker-playbook
+rhel-system-roles-sap
+sap-cluster-connector
