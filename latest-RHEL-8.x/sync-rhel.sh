@@ -1,6 +1,6 @@
 #! /bin/sh -e
 
-burl="http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.4/"
+burl="http://download.eng.bos.redhat.com/rhel-8/nightly/RHEL-8/latest-RHEL-8.5/"
 
 curl="curl --progress-bar --compressed --remote-time --location -O"
 rsync="rsync --partial --info=progress2 -a -AX --del -e ssh"
