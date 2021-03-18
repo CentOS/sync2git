@@ -1,5 +1,15 @@
 # If we want to filter any git tags, we can do it here:
 nvr=virt-who-1.29.3-1.el8
+# These keep failing...
+nvr=libblockdev-2.24-3.el8
+nvr=openchange-2.3-27.el8
+nvr=pcp-5.2.2-1.el8
+nvr=postfix-3.5.8-1.el8
+nvr=samba-4.13.2-4.el8
+nvr=samba-4.13.2-2.el8
+nvr=spirv-tools-2020.5-2.20201031.gitf7da527.el8
+nvr=sssd-2.4.0-2.el8
+
 # We also automatically filter:
 #  Bracnhed builds:
 # rel=*el8_*
