@@ -14,18 +14,18 @@ while true; do
   fi
   ./latest-RHEL-8.x/sync-rhel.sh
   for i in $(seq 10); do
-    echo Doing HTML sync.
-    uitime
-    ssh composer01.rdu2.centos.org ./centos-sync-packages/cron-html.sh
-    ./latest-RHEL-8.x/sync-file.sh x
-
   cd ..
   echo Doing LOG sync.
   $rsyncD cent-vm:sync2git-logs .
   $rsyncD sync2git-logs composer01.rdu2.centos.org:
   cd centos-sync-packages
   ./logdata4sync2git.py html ../sync2git-logs > CVE-checker.html
-  $rsyncD CVE-checker.html dell-per930-01.4a2m.lab.eng.bos.redhat.com:/var/www/html/stream/
+  # $rsyncD CVE-checker.html dell-per930-01.4a2m.lab.eng.bos.redhat.com:/var/www/html/stream/
+
+    echo Doing HTML sync.
+    uitime
+    ssh composer01.rdu2.centos.org ./centos-sync-packages/cron-html.sh
+    ./latest-RHEL-8.x/sync-file.sh x
 
     uitime
     echo Sleeping 15m
