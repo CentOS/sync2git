@@ -182,10 +182,6 @@ html_footer = """\
                 $('#pkgdata').DataTable(
                     {
                         "paging" : false,
-                        "columnDefs": [{
-                            "targets" : [0],
-                            "visible" : false
-                        }],
                         "createdRow" : function(row, data, dataIndex) {
                             $(row).addClass(data[0]);
                         },
