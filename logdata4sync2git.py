@@ -44,7 +44,33 @@ def log2stats(logname):
                 ret['pkgs'][pkg[0]] = pkg[1]
         else:
             break
+    del ret['mods']['']
     return ret
+
+def stats_subset(superset, subset):
+    """ Remove extra pkg/mod data from subset that isn't in superset. """
+    npkgs = {}
+
+    for pkg in subset['pkgs']:
+        if pkg not in superset['pkgs']:
+            continue
+        npkgs[pkg] = subset['pkgs'][pkg]
+
+    subset['pkgs'] = npkgs
+
+    nmods = {}
+    fmodns = set()
+    for mod in superset['mods']:
+        modns = mod.rsplit("-", 1)[0]
+        fmodns.add(modns)
+    for mod in subset['mods']:
+        modns = mod.rsplit("-", 1)[0]
+        if modns not in fmodns:
+            continue
+        nmods[mod] = subset['mods'][mod]
+
+    subset['mods'] = nmods
+    return subset
 
 def process(logs):
     ret = []
@@ -56,14 +82,8 @@ def process(logs):
         if first is None:
             first = stats
         else:
-            still = False
-            for pkg in stats['pkgs']:
-                if pkg in first['pkgs']:
-                    still = True
-            for mod in stats['mods']:
-                if mod in first['mods']:
-                    still = True
-            if not still:
+            stats = stats_subset(first, stats)
+            if not stats['pkgs'] and not stats['mods']:
                 break
         ret.append(stats)
     return list(reversed(ret))
@@ -93,22 +113,27 @@ def output_text(stats, verbose):
             pkgs.remove(pkg)
 
     print("Mods:")
-    mods = set(latest['mods'].keys())
+    fmodns = {}
+    for mod in latest['mods']:
+        modns = mod.rsplit("-", 1)[0]
+        fmodns[modns] = mod
     for stat in stats:
         for mod in stat['mods']:
-            if mod == '':
+            modns = mod.rsplit("-", 1)[0]
+            if modns not in fmodns:
                 continue
-            if mod not in mods:
-                continue
+
             modui = mod
             if not verbose:
-                modui = mod.rsplit("-", 1)[0]
+                modui = modns
             print(" %-60s %s" % (modui, stat['date']))
-            for pkg in latest['mods'][mod]:
+            if verbose:
+                print(" \_ %s" % (fmodns[modns],))
+            for pkg in latest['mods'][fmodns[modns]]:
                 print("   %s" % (pkg,))
                 if verbose:
-                    print("   \_ %s" % (latest['mods'][mod][pkg],))
-            mods.remove(mod)
+                    print("   \_ %s" % (latest['mods'][fmodns[modns]][pkg],))
+            del fmodns[modns]
 
 # See: https://www.datatables.net
 html_header = """\
