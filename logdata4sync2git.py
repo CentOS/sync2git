@@ -271,18 +271,19 @@ def output_html(stats):
             html_row(fo, '&lt;BaseOS&gt;', pkg, status, stat['date'], lc=lc)
             pkgs.remove(pkg)
 
-    mods = set(latest['mods'].keys())
+    fmodns = {}
+    for mod in latest['mods']:
+        modns = mod.rsplit("-", 1)[0]
+        fmodns[modns] = mod
     for stat in stats:
         for mod in stat['mods']:
-            if mod == '':
-                continue
-            if mod not in mods:
-                continue
             modui = mod.rsplit("-", 1)[0]
-            for pkg in latest['mods'][mod]:
-                status,lc = _status(latest['mods'][mod][pkg])
+            if modui not in fmodns:
+                continue
+            for pkg in latest['mods'][fmodns[modui]]:
+                status,lc = _status(latest['mods'][fmodns[modui]][pkg])
                 html_row(fo, modui, pkg, status, stat['date'], lc=lc)
-            mods.remove(mod)
+            del fmodns[modui]
     fo.write(html_footer)
 
 def main():
