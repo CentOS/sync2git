@@ -12,16 +12,16 @@ import urllib
 
 import json
 
-burl="http://centos-cve-checker-centos-cve-checker.cloud.paas.psi.redhat.com/"
+burl="http://cve-checker-route-centos-cve-checker.apps.ocp4.prod.psi.redhat.com/"
 
 use_multithreading = False
 
 sleep_beg = 0.1
 sleep_end = 8
-sleep_err = 20 # Kernel can take a _long_ time, like almost 2 hours.
-               # But most packages take a couple of seconds, and some queries
-               # just timeout all the time. When we rerun we'll see the history
-               # and pass it.
+sleep_err = 120 # Kernel can take a _long_ time, like almost 2 hours.
+                # But most packages take a couple of seconds, and some queries
+                # just timeout all the time. When we rerun we'll see the history
+                # and pass it.
 
 def _data_url(url):
     try:
