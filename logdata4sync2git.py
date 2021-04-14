@@ -15,6 +15,13 @@ def log2stats(logname):
 
     state = 'beg'
     for line in open(logname):
+
+        if state == 'end':
+            return None # Too harsh?
+        if line.startswith(" -- End: "):
+            state = 'end'
+            continue
+
         if False: pass
         elif state == 'beg':
             if line.startswith("Checking CVEs for packages:"):
@@ -44,6 +51,9 @@ def log2stats(logname):
                 ret['pkgs'][pkg[0]] = pkg[1]
         else:
             break
+
+    if state != 'end':
+        return None # Partial files...
     del ret['mods']['']
     return ret
 
@@ -79,6 +89,8 @@ def process(logs):
         if not log.endswith(".out.log"):
             continue
         stats = log2stats(log)
+        if stats is None:
+            continue
         if first is None:
             first = stats
         else:
@@ -100,6 +112,7 @@ def output_text(stats, verbose):
     if not latest['pkgs'] and len(latest['mods']) == 1:
         print('No packages held by CVE checker.')
         return
+    print('Latest: ' + latest['date'])
 
     pkgs = set(latest['pkgs'].keys())
     print("Pkgs:")
