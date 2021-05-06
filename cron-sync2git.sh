@@ -30,12 +30,17 @@ function unlockf {
     rm -f "$lockf"
 }
 
-tm=60
+tm=15
 while [ -f "$lockf" ]; do
   echo "Now: $(date --iso=minutes)"
+  if [ $tm -ge 1920 ]; then
+    echo "Exiting."
+    exit 1
+  fi
   echo "File <$lockf> already EXISTS! Owned by pid: $(cat $lockf)"
   echo " C-c in next $tm seconds or WAIT."
   sleep $tm
+  tm=$(($tm*2))
 done
 
 echo "$$" > "$lockf"
