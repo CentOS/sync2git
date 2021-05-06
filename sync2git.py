@@ -477,7 +477,7 @@ def check_cve_builds(pkgs):
         #  Precache for speed, downside is it means once we get an allow
         # we stop querying.
         #  2021-05-05: Remove history calls because it's failing in weird ways.
-        if True: not req.hist_precache():
+        if True: # not req.hist_precache():
             req.req()
 
     # Now we look at the results and filter those that aren't allowed...
